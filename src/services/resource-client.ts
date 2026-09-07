@@ -35,7 +35,7 @@ export class ResourceService {
     location: string = 'global',
     collectionId: string = 'default_collection',
     resourceType: 'engines' | 'dataStores' = 'engines',
-    apiVersion: string = 'v1alpha',
+    apiVersion: string = 'v1',
     customToken?: string,
     quotaProject?: string
   ): Promise<IResourceListResult> {
@@ -133,7 +133,7 @@ export class ResourceService {
     location: string = 'global',
     collectionId: string = 'default_collection',
     engineId: string,
-    apiVersion: string = 'v1alpha',
+    apiVersion: string = 'v1',
     customToken?: string,
     quotaProject?: string
   ): Promise<IEngineDataStoresResult> {

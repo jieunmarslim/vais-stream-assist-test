@@ -82,7 +82,7 @@ export class AppRouter {
       const location = url.searchParams.get('location') || 'global';
       const collectionId = url.searchParams.get('collection_id') || 'default_collection';
       const resourceType = (url.searchParams.get('resource_type') === 'dataStores' ? 'dataStores' : 'engines');
-      const apiVersion = url.searchParams.get('api_version') || 'v1alpha';
+      const apiVersion = url.searchParams.get('api_version') || 'v1';
       const customToken = url.searchParams.get('custom_token') || undefined;
       const quotaProject = url.searchParams.get('quota_project') || undefined;
 
@@ -107,7 +107,7 @@ export class AppRouter {
       const location = url.searchParams.get('location') || 'global';
       const collectionId = url.searchParams.get('collection_id') || 'default_collection';
       const engineId = url.searchParams.get('engine_id') || '';
-      const apiVersion = url.searchParams.get('api_version') || 'v1alpha';
+      const apiVersion = url.searchParams.get('api_version') || 'v1';
       const customToken = url.searchParams.get('custom_token') || undefined;
       const quotaProject = url.searchParams.get('quota_project') || undefined;
 
