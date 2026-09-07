@@ -21,18 +21,12 @@ interface IDataStoreItem {
   parserType: 'LAYOUT' | 'DIGITAL' | 'OCR' | 'DEFAULT' | 'UNSPECIFIED';
 }
 
-interface IBoostItem {
-  condition: string;
-  boost: number;
-}
-
 export default function App() {
   // Target Config State (Location is fixed to app's location 'global')
   const [projectId, setProjectId] = useState('agentspace-test-469511');
-  const [apiVersion, setApiVersion] = useState('v1alpha');
+  const [apiVersion, setApiVersion] = useState('v1');
   const location = 'global'; // Fixed to app's location per user requirement
   const [servingConfigId, setServingConfigId] = useState('default_search');
-  const [targetType, setTargetType] = useState<'engines' | 'dataStores'>('engines');
   const [engineId, setEngineId] = useState('gemini-enhanced-parser-tes_1775720801989');
   const [discoveredEngines, setDiscoveredEngines] = useState<Array<{ id: string; displayName: string }>>([]);
   const [customToken, setCustomToken] = useState('');
@@ -87,7 +81,6 @@ export default function App() {
   const [summaryLowRelevant, setSummaryLowRelevant] = useState(true);
   const [summarySemanticChunks, setSummarySemanticChunks] = useState(false);
   const [summaryModel, setSummaryModel] = useState('');
-  const [summaryPreamble, setSummaryPreamble] = useState('');
 
   // extractiveContentSpec
   const [extractiveEnabled, setExtractiveEnabled] = useState(true);
@@ -111,11 +104,6 @@ export default function App() {
   const [spellEnabled, setSpellEnabled] = useState(true);
   const [spellMode, setSpellMode] = useState<'AUTO' | 'SUGGESTION_ONLY'>('AUTO');
   const [nlFilterCondition, setNlFilterCondition] = useState<'DISABLED' | 'ENABLED'>('DISABLED');
-
-  // Boost & Facets
-  const [boostSpecs, setBoostSpecs] = useState<IBoostItem[]>([]);
-  const [facetKeys, setFacetKeys] = useState('');
-  const [customJsonParams, setCustomJsonParams] = useState('');
 
   // Results & Execution state
   const [isSearching, setIsSearching] = useState(false);
@@ -270,8 +258,8 @@ export default function App() {
     const proj = projectId || '$PROJECT_ID';
     const resId = engineId || '$RESOURCE_ID';
     const cfgId = servingConfigId || 'default_search';
-    return `https://discoveryengine.googleapis.com/${apiVersion}/projects/${proj}/locations/${location}/collections/default_collection/${targetType}/${resId}/servingConfigs/${cfgId}:search`;
-  }, [projectId, apiVersion, location, targetType, engineId, servingConfigId]);
+    return `https://discoveryengine.googleapis.com/${apiVersion}/projects/${proj}/locations/${location}/collections/default_collection/engines/${resId}/servingConfigs/${cfgId}:search`;
+  }, [projectId, apiVersion, location, engineId, servingConfigId]);
 
   // Real-time Outgoing Payload JSON
   const payloadJson = useMemo(() => {
@@ -318,8 +306,7 @@ export default function App() {
         ignoreLowRelevantContent: summaryLowRelevant,
         useSemanticChunks: summarySemanticChunks,
         ...(summaryLang.trim() ? { languageCode: summaryLang.trim() } : {}),
-        ...(summaryModel.trim() ? { modelSpec: { version: summaryModel.trim() } } : {}),
-        ...(summaryPreamble.trim() ? { modelPromptSpec: { preamble: summaryPreamble.trim() } } : {})
+        ...(summaryModel.trim() ? { modelSpec: { version: summaryModel.trim() } } : {})
       };
     }
     if (searchResultMode) cs.searchResultMode = searchResultMode;
@@ -338,27 +325,6 @@ export default function App() {
       p.naturalLanguageQueryUnderstandingSpec = { filterExtractionCondition: nlFilterCondition };
     }
 
-    const validBoosts = boostSpecs.filter(b => b.condition.trim().length > 0);
-    if (validBoosts.length > 0) {
-      p.boostSpec = { conditionBoostSpecs: validBoosts };
-    }
-
-    const facets = facetKeys.split(',').map(s => s.trim()).filter(Boolean);
-    if (facets.length > 0) {
-      p.facetSpecs = facets.map(key => ({ facetKey: { key } }));
-    }
-
-    if (customJsonParams.trim()) {
-      try {
-        const extra = JSON.parse(customJsonParams);
-        if (typeof extra === 'object' && extra !== null) {
-          Object.assign(p, extra);
-        }
-      } catch {
-        // ignore invalid json while typing
-      }
-    }
-
     return p;
   }, [
     query, pageSizeEnabled, pageSize, offsetEnabled, offset, pageTokenEnabled, pageToken,
@@ -368,9 +334,9 @@ export default function App() {
     snippetReturn, snippetMax, extractiveEnabled, extractiveAnswers, extractiveSegments,
     extractiveReturnScore, extractivePrev, extractiveNext, summaryEnabled, summaryCount,
     summaryCitations, summaryAdversarial, summaryNonSeeking, summaryLowRelevant,
-    summarySemanticChunks, summaryLang, summaryModel, summaryPreamble, searchResultMode,
+    summarySemanticChunks, summaryLang, summaryModel, searchResultMode,
     chunkPrev, chunkNext, qeEnabled, qeCondition, qePin, spellEnabled, spellMode,
-    nlFilterCondition, boostSpecs, facetKeys, customJsonParams
+    nlFilterCondition
   ]);
 
   const payloadString = useMemo(() => JSON.stringify(payloadJson, null, 2), [payloadJson]);
@@ -394,7 +360,7 @@ export default function App() {
         project_id: projectId,
         api_version: apiVersion,
         location,
-        resource_type: targetType,
+        resource_type: 'engines',
         resource_id: engineId,
         serving_config_id: servingConfigId,
         query,
@@ -419,8 +385,7 @@ export default function App() {
           ignore_low_relevant_content: summaryLowRelevant,
           use_semantic_chunks: summarySemanticChunks,
           language_code: summaryLang.trim() || undefined,
-          model_version: summaryModel.trim() || undefined,
-          model_prompt_preamble: summaryPreamble.trim() || undefined
+          model_version: summaryModel.trim() || undefined
         } : undefined,
         extractive_spec: extractiveEnabled ? {
           enabled: true,
@@ -435,10 +400,7 @@ export default function App() {
         chunk_spec: searchResultMode === 'CHUNKS' ? { num_previous_chunks: chunkPrev, num_next_chunks: chunkNext } : undefined,
         query_expansion_spec: qeEnabled ? { condition: qeCondition, pin_unexpanded_results: qePin } : undefined,
         spell_correction_spec: spellEnabled ? { mode: spellMode } : undefined,
-        nl_understanding_spec: nlFilterCondition !== 'DISABLED' ? { filter_extraction_condition: nlFilterCondition } : undefined,
-        boost_specs: boostSpecs.filter(b => b.condition.trim().length > 0),
-        facet_specs: facetKeys.split(',').map(s => s.trim()).filter(Boolean),
-        custom_params_json: customJsonParams.trim() || undefined
+        nl_understanding_spec: nlFilterCondition !== 'DISABLED' ? { filter_extraction_condition: nlFilterCondition } : undefined
       };
 
       const res = await fetch('/api/search', {
@@ -471,17 +433,16 @@ export default function App() {
       setIsSearching(false);
     }
   }, [
-    projectId, apiVersion, location, targetType, engineId, servingConfigId, query,
+    projectId, apiVersion, location, engineId, servingConfigId, query,
     customToken, quotaProject, pageSizeEnabled, pageSize, offsetEnabled, offset,
     pageTokenEnabled, pageToken, filterEnabled, filter, canonicalFilterEnabled, canonicalFilter,
     orderByEnabled, orderBy, relevanceThresholdEnabled, relevanceThreshold, rankingExprEnabled,
     rankingExpr, userPseudoIdEnabled, userPseudoId, selectedDsIds, summaryEnabled,
     summaryCount, summaryCitations, summaryAdversarial, summaryNonSeeking, summaryLowRelevant,
-    summarySemanticChunks, summaryLang, summaryModel, summaryPreamble, extractiveEnabled,
+    summarySemanticChunks, summaryLang, summaryModel, extractiveEnabled,
     extractiveAnswers, extractiveSegments, extractiveReturnScore, extractivePrev, extractiveNext,
     snippetReturn, snippetMax, searchResultMode, chunkPrev, chunkNext, qeEnabled, qeCondition,
-    qePin, spellEnabled, spellMode, nlFilterCondition, boostSpecs, facetKeys, customJsonParams,
-    endpointUrl
+    qePin, spellEnabled, spellMode, nlFilterCondition, endpointUrl
   ]);
 
   // Global Keyboard Shortcut: Cmd+Enter or Ctrl+Enter to Send
@@ -516,7 +477,7 @@ export default function App() {
             project_id: projectId,
             api_version: apiVersion,
             location,
-            resource_type: targetType,
+            resource_type: 'engines',
             resource_id: engineId,
             serving_config_id: servingConfigId,
             query,
@@ -620,9 +581,9 @@ export default function App() {
               onChange={(e) => handleApiVersionChange(e.target.value)}
               className="h-7 text-xs font-mono font-bold w-24"
             >
-              <option value="v1alpha">v1alpha</option>
+              <option value="v1">v1 (GA)</option>
               <option value="v1beta">v1beta</option>
-              <option value="v1">v1</option>
+              <option value="v1alpha">v1alpha</option>
             </Select>
           </div>
         </div>
@@ -687,9 +648,9 @@ export default function App() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
             
             {/* Request Navigation Tabs */}
-            <div className="px-4 border-b border-border bg-muted/10 shrink-0">
-              <TabsList className="w-full justify-start border-b-0 h-10 gap-5">
-                <TabsTrigger value="params" className="flex items-center gap-1.5 text-xs py-2 px-2.5">
+            <div className="h-10 px-3 border-b border-border bg-card/60 flex items-center shrink-0">
+              <TabsList className="w-full justify-start border-b-0 h-full gap-4 bg-transparent p-0">
+                <TabsTrigger value="params" className="flex items-center gap-1.5 text-xs py-1 px-2">
                   <Sliders className="h-3.5 w-3.5" />
                   <span>Params</span>
                   <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1 font-mono">
@@ -697,7 +658,7 @@ export default function App() {
                   </Badge>
                 </TabsTrigger>
 
-                <TabsTrigger value="datastores" className="flex items-center gap-1.5 text-xs py-2 px-2.5">
+                <TabsTrigger value="datastores" className="flex items-center gap-1.5 text-xs py-1 px-2">
                   <Database className="h-3.5 w-3.5" />
                   <span>DataStores</span>
                   <Badge 
@@ -708,20 +669,15 @@ export default function App() {
                   </Badge>
                 </TabsTrigger>
 
-                <TabsTrigger value="specs" className="flex items-center gap-1.5 text-xs py-2 px-2.5">
+                <TabsTrigger value="specs" className="flex items-center gap-1.5 text-xs py-1 px-2">
                   <Sparkles className="h-3.5 w-3.5" />
                   <span>Specs</span>
                 </TabsTrigger>
 
-                <TabsTrigger value="headers" className="flex items-center gap-1.5 text-xs py-2 px-2.5">
+                <TabsTrigger value="headers" className="flex items-center gap-1.5 text-xs py-1 px-2">
                   <Key className="h-3.5 w-3.5" />
                   <span>Headers</span>
                   <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1 font-mono">3</Badge>
-                </TabsTrigger>
-
-                <TabsTrigger value="target" className="flex items-center gap-1.5 text-xs py-2 px-2.5">
-                  <Settings className="h-3.5 w-3.5" />
-                  <span>Target</span>
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -911,7 +867,7 @@ export default function App() {
                     </div>
 
                     {/* userPseudoId */}
-                    <div className="grid grid-cols-12 gap-2 px-3 py-1.5 items-center hover:bg-muted/10">
+                    <div className="grid grid-cols-12 gap-2 px-3 py-1.5 items-center border-b border-border/50 hover:bg-muted/10">
                       <div className="col-span-1 flex items-center justify-center">
                         <Checkbox checked={userPseudoIdEnabled} onCheckedChange={(c) => setUserPseudoIdEnabled(!!c)} />
                       </div>
@@ -922,6 +878,24 @@ export default function App() {
                           onChange={(e) => setUserPseudoId(e.target.value)}
                           disabled={!userPseudoIdEnabled}
                           placeholder="Unique anonymized user uuid"
+                          className="h-7 text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {/* servingConfigId (URL Path Parameter) */}
+                    <div className="grid grid-cols-12 gap-2 px-3 py-1.5 items-center hover:bg-muted/10 bg-muted/5">
+                      <div className="col-span-1 flex items-center justify-center">
+                        <span className="text-[9px] text-muted-foreground font-mono font-bold">PATH</span>
+                      </div>
+                      <div className="col-span-4 font-mono font-semibold text-[11px] text-muted-foreground">
+                        servingConfigId
+                      </div>
+                      <div className="col-span-7">
+                        <Input
+                          value={servingConfigId}
+                          onChange={(e) => setServingConfigId(e.target.value)}
+                          placeholder="default_search"
                           className="h-7 text-xs font-mono"
                         />
                       </div>
@@ -1174,16 +1148,6 @@ export default function App() {
                         </datalist>
                       </div>
 
-                      <div className="col-span-full">
-                        <Label className="text-[10px] text-muted-foreground">modelPromptSpec.preamble (Optional)</Label>
-                        <Textarea
-                          value={summaryPreamble}
-                          onChange={(e) => setSummaryPreamble(e.target.value)}
-                          placeholder="Instructions at the beginning of prompt (optional)"
-                          className="mt-0.5 h-12 text-xs font-mono resize-none"
-                        />
-                      </div>
-
                       <div className="col-span-full flex flex-wrap gap-3 pt-1 text-[11px]">
                         <label className="flex items-center gap-1.5 cursor-pointer">
                           <Checkbox checked={summaryCitations} onCheckedChange={(c) => setSummaryCitations(!!c)} />
@@ -1374,89 +1338,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 5. Boost & Facets */}
-                <div className="border border-border rounded-md p-3 bg-card space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs">boostSpec & facetSpecs</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-5 text-[10px] px-2"
-                      onClick={() => setBoostSpecs([...boostSpecs, { condition: '', boost: 0.1 }])}
-                    >
-                      + Add Boost
-                    </Button>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    {boostSpecs.length === 0 ? (
-                      <div className="text-[11px] text-muted-foreground italic py-1">
-                        No condition boosts configured. Click '+ Add Boost' to specify condition boost specs.
-                      </div>
-                    ) : (
-                      boostSpecs.map((b, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <Input
-                            placeholder='e.g. tag: ANY("public")'
-                            value={b.condition}
-                            onChange={(e) => {
-                              const copy = [...boostSpecs];
-                              copy[idx].condition = e.target.value;
-                              setBoostSpecs(copy);
-                            }}
-                            className="h-7 text-xs font-mono flex-1"
-                          />
-                          <Input
-                            type="number"
-                            step="0.1"
-                            min="-1"
-                            max="1"
-                            value={b.boost}
-                            onChange={(e) => {
-                              const copy = [...boostSpecs];
-                              copy[idx].boost = Number(e.target.value);
-                              setBoostSpecs(copy);
-                            }}
-                            className="h-7 w-20 text-xs font-mono"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-destructive"
-                            onClick={() => setBoostSpecs(boostSpecs.filter((_, i) => i !== idx))}
-                          >
-                            ×
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="pt-2">
-                    <Label className="text-[10px] text-muted-foreground">facetSpecs (Comma-separated keys)</Label>
-                    <Input
-                      value={facetKeys}
-                      onChange={(e) => setFacetKeys(e.target.value)}
-                      placeholder="category, author, department"
-                      className="mt-0.5 h-7 text-xs font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* 6. Custom JSON injection */}
-                <div className="border border-border rounded-md p-3 bg-card space-y-1.5">
-                  <Label className="text-xs font-bold text-foreground">Custom Raw JSON (Direct Injection)</Label>
-                  <p className="text-[10.5px] text-muted-foreground">
-                    Arbitrary fields merged directly into the outgoing request payload object.
-                  </p>
-                  <Textarea
-                    value={customJsonParams}
-                    onChange={(e) => setCustomJsonParams(e.target.value)}
-                    placeholder='{ "userInfo": { "userId": "test-user-id" } }'
-                    className="font-mono text-xs h-16 bg-background mt-1"
-                  />
-                </div>
-
               </TabsContent>
 
               {/* ========================================================= */}
@@ -1523,110 +1404,7 @@ export default function App() {
                 </div>
               </TabsContent>
 
-              {/* ========================================================= */}
-              {/* TAB 5: TARGET CONFIG                                     */}
-              {/* ========================================================= */}
-              <TabsContent value="target" className="mt-0 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider">
-                    Google Cloud Project & Engine Configuration
-                  </h3>
-                  <Badge variant="secondary" className="text-[10px] font-mono">
-                    Location: {location} (Fixed)
-                  </Badge>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <Label className="text-[10.5px] text-muted-foreground">GCP Project ID</Label>
-                    <Input
-                      value={projectId}
-                      onChange={(e) => setProjectId(e.target.value)}
-                      className="mt-1 h-8 text-xs font-mono font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-[10.5px] text-muted-foreground">API Version</Label>
-                    <Select
-                      value={apiVersion}
-                      onChange={(e) => setApiVersion(e.target.value)}
-                      className="mt-1 h-8 text-xs font-mono font-bold"
-                    >
-                      <option value="v1alpha">v1alpha (Full Feature Preview)</option>
-                      <option value="v1beta">v1beta</option>
-                      <option value="v1">v1 (GA)</option>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label className="text-[10.5px] text-muted-foreground">Target Resource Type</Label>
-                    <div className="flex items-center gap-4 mt-2">
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="targetType"
-                          value="engines"
-                          checked={targetType === 'engines'}
-                          onChange={() => setTargetType('engines')}
-                        />
-                        <span><b>Search Engine</b></span>
-                      </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="targetType"
-                          value="dataStores"
-                          checked={targetType === 'dataStores'}
-                          onChange={() => setTargetType('dataStores')}
-                        />
-                        <span><b>Direct DataStore</b></span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-[10.5px] text-muted-foreground">Serving Config ID</Label>
-                    <Input
-                      value={servingConfigId}
-                      onChange={(e) => setServingConfigId(e.target.value)}
-                      className="mt-1 h-8 text-xs font-mono"
-                    />
-                  </div>
-
-                  <div className="col-span-full space-y-1">
-                    <Label className="text-[10.5px] text-muted-foreground">
-                      Engine ID (Typing triggers live DataStore fetch)
-                    </Label>
-                    <Input
-                      value={engineId}
-                      onChange={(e) => handleEngineChange(e.target.value)}
-                      className="h-8 text-xs font-mono font-bold text-orange-500"
-                    />
-                  </div>
-
-                  <div className="col-span-full space-y-1">
-                    <Label className="text-[10.5px] text-muted-foreground">
-                      Or Select from Discovered Engines
-                    </Label>
-                    <div className="flex gap-2">
-                      <Select
-                        value={engineId}
-                        onChange={(e) => handleEngineChange(e.target.value)}
-                        className="font-mono flex-1 h-8 text-xs"
-                      >
-                        <option value="">-- Discovered Engines in {projectId} --</option>
-                        {discoveredEngines.map(eng => (
-                          <option key={eng.id} value={eng.id}>{eng.displayName} ({eng.id})</option>
-                        ))}
-                      </Select>
-                      <Button variant="outline" size="sm" onClick={fetchEngines} className="h-8 text-xs px-3">
-                        Fetch Engines
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
 
             </div>
           </Tabs>
@@ -1635,16 +1413,20 @@ export default function App() {
         {/* ========================================================================= */}
         {/* COLUMN 2 (MIDDLE): REAL-TIME REQUEST BODY (JSON / cURL)                   */}
         {/* ========================================================================= */}
-        <div className="flex flex-col h-full min-h-0 bg-card/20 overflow-hidden border-t lg:border-t-0">
+        <div className="flex flex-col h-full min-h-0 bg-background overflow-hidden border-t lg:border-t-0">
           {/* Header */}
-          <div className="h-10 px-3 border-b border-border bg-muted/10 flex items-center justify-between shrink-0">
+          <div className="h-10 px-3 border-b border-border bg-card/60 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
-              <span className="font-mono font-bold text-xs uppercase tracking-wider text-foreground">
+              <span className="font-bold text-xs uppercase tracking-wider text-foreground">
                 Request Body
               </span>
               <Badge variant="outline" className="text-[9.5px] font-mono bg-background text-foreground border-border">
-                POST / JSON
+                {requestBodyMode === 'json' ? `${Object.keys(payloadJson).length} keys` : 'cURL'}
               </Badge>
+              <span className="text-emerald-500 text-[10.5px] font-mono font-medium flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Sync
+              </span>
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -1674,7 +1456,7 @@ export default function App() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-[11px] px-2"
+                className="h-7 text-[11px] px-2.5"
                 onClick={() => {
                   if (requestBodyMode === 'json') {
                     navigator.clipboard.writeText(payloadString);
@@ -1695,19 +1477,6 @@ export default function App() {
                 <span>{(requestBodyMode === 'json' ? copiedPayload : copiedCurl) ? 'Copied' : 'Copy'}</span>
               </Button>
             </div>
-          </div>
-
-          {/* Sub-bar: Status and stats */}
-          <div className="px-3 py-1 bg-muted/5 border-b border-border/60 flex items-center justify-between text-[10.5px] font-mono text-muted-foreground shrink-0">
-            <span>
-              {requestBodyMode === 'json'
-                ? `${Object.keys(payloadJson).length} root keys • ${new Blob([payloadString]).size} bytes`
-                : 'Executable gcloud cURL command'}
-            </span>
-            <span className="text-emerald-500 font-semibold flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live Sync
-            </span>
           </div>
 
           {/* Code Viewer with Line Numbers */}
@@ -1773,7 +1542,7 @@ export default function App() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 text-[11px] px-2"
+                className="h-7 text-[11px] px-2.5"
                 onClick={() => {
                   navigator.clipboard.writeText(rawResponseText);
                   setCopiedRaw(true);
@@ -1787,7 +1556,7 @@ export default function App() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 text-[11px] px-2"
+                className="h-7 text-[11px] px-2.5"
                 onClick={() => {
                   const blob = new Blob([rawResponseText], { type: 'application/json' });
                   const url = URL.createObjectURL(blob);
@@ -1803,13 +1572,13 @@ export default function App() {
               </Button>
 
               {/* Grep Filter Input */}
-              <div className="flex items-center gap-1 ml-1">
+              <div className="flex items-center gap-1 pl-1 border-l border-border">
                 <Filter className="h-3 w-3 text-muted-foreground" />
                 <Input
                   value={grepFilter}
                   onChange={(e) => setGrepFilter(e.target.value)}
                   placeholder="Filter lines..."
-                  className="h-6 w-28 text-[11px] font-mono"
+                  className="h-7 w-28 text-[11px] font-mono px-2"
                 />
               </div>
             </div>
@@ -1821,7 +1590,7 @@ export default function App() {
               readOnly
               value={displayedRawText}
               spellCheck={false}
-              className="w-full h-full p-4 font-mono text-xs bg-zinc-950 text-zinc-100 border-0 resize-none focus:outline-none select-text leading-relaxed"
+              className="w-full h-full p-3 font-mono text-xs bg-zinc-950 text-emerald-400 border-0 resize-none focus:outline-none select-text leading-relaxed selection:bg-emerald-950 selection:text-emerald-200"
             />
           </div>
 
