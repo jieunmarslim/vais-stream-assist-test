@@ -40,7 +40,7 @@ export class PayloadBuilder {
       payload.userPseudoId = cfg.user_pseudo_id.trim();
     }
 
-    if (cfg.relevance_threshold && cfg.relevance_threshold.trim() !== 'NONE') {
+    if (cfg.relevance_threshold && cfg.relevance_threshold.trim() !== 'NONE' && cfg.relevance_threshold.trim() !== 'RELEVANCE_THRESHOLD_UNSPECIFIED') {
       payload.relevanceThreshold = cfg.relevance_threshold.trim() as any;
     }
 

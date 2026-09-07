@@ -48,7 +48,7 @@ export default function App() {
   const [dsStatusMsg, setDsStatusMsg] = useState('');
 
   // Query & Properties State
-  const [query, setQuery] = useState('Gemini Enterprise 아키텍처 및 보안 정책');
+  const [query, setQuery] = useState('Gemini Enterprise');
   
   // Core Search Props (Table format like Postman Params)
   const [pageSizeEnabled, setPageSizeEnabled] = useState(true);
@@ -58,29 +58,29 @@ export default function App() {
   const [pageTokenEnabled, setPageTokenEnabled] = useState(false);
   const [pageToken, setPageToken] = useState('');
   const [filterEnabled, setFilterEnabled] = useState(false);
-  const [filter, setFilter] = useState('category: ANY("Security")');
+  const [filter, setFilter] = useState('');
   const [canonicalFilterEnabled, setCanonicalFilterEnabled] = useState(false);
   const [canonicalFilter, setCanonicalFilter] = useState('');
   const [orderByEnabled, setOrderByEnabled] = useState(false);
-  const [orderBy, setOrderBy] = useState('update_time desc');
+  const [orderBy, setOrderBy] = useState('');
   const [relevanceThresholdEnabled, setRelevanceThresholdEnabled] = useState(false);
-  const [relevanceThreshold, setRelevanceThreshold] = useState('NONE');
+  const [relevanceThreshold, setRelevanceThreshold] = useState('RELEVANCE_THRESHOLD_UNSPECIFIED');
   const [rankingExprEnabled, setRankingExprEnabled] = useState(false);
   const [rankingExpr, setRankingExpr] = useState('');
   const [userPseudoIdEnabled, setUserPseudoIdEnabled] = useState(false);
-  const [userPseudoId, setUserPseudoId] = useState('test-user-uuid');
+  const [userPseudoId, setUserPseudoId] = useState('');
 
   // summarySpec
   const [summaryEnabled, setSummaryEnabled] = useState(true);
   const [summaryCount, setSummaryCount] = useState(3);
-  const [summaryLang, setSummaryLang] = useState('ko');
+  const [summaryLang, setSummaryLang] = useState('');
   const [summaryCitations, setSummaryCitations] = useState(true);
   const [summaryAdversarial, setSummaryAdversarial] = useState(true);
   const [summaryNonSeeking, setSummaryNonSeeking] = useState(true);
   const [summaryLowRelevant, setSummaryLowRelevant] = useState(true);
   const [summarySemanticChunks, setSummarySemanticChunks] = useState(false);
-  const [summaryModel, setSummaryModel] = useState('gemini-1.5-flash-002/default');
-  const [summaryPreamble, setSummaryPreamble] = useState('답변은 신뢰할 수 있는 사내 문서를 바탕으로 한국어로 공손하고 명확하게 요약해 주세요.');
+  const [summaryModel, setSummaryModel] = useState('');
+  const [summaryPreamble, setSummaryPreamble] = useState('');
 
   // extractiveContentSpec
   const [extractiveEnabled, setExtractiveEnabled] = useState(true);
@@ -106,10 +106,8 @@ export default function App() {
   const [nlFilterCondition, setNlFilterCondition] = useState<'DISABLED' | 'ENABLED'>('DISABLED');
 
   // Boost & Facets
-  const [boostSpecs, setBoostSpecs] = useState<IBoostItem[]>([
-    { condition: 'category: ANY("Security")', boost: 0.5 }
-  ]);
-  const [facetKeys, setFacetKeys] = useState('category, author');
+  const [boostSpecs, setBoostSpecs] = useState<IBoostItem[]>([]);
+  const [facetKeys, setFacetKeys] = useState('');
   const [customJsonParams, setCustomJsonParams] = useState('');
 
   // Results & Execution state
@@ -124,30 +122,10 @@ export default function App() {
   const [copiedCurl, setCopiedCurl] = useState(false);
   const [copiedRaw, setCopiedRaw] = useState(false);
 
-  // Fetch Engines List
-  const fetchEngines = async () => {
-    try {
-      const params = new URLSearchParams({
-        project_id: projectId,
-        location,
-        resource_type: 'engines',
-        api_version: apiVersion
-      });
-      if (customToken) params.set('custom_token', customToken);
-      if (quotaProject) params.set('quota_project', quotaProject);
-
-      const res = await fetch(`/api/list-resources?${params.toString()}`);
-      const data = await res.json();
-      if (data.status === 'ok' && data.items) {
-        setDiscoveredEngines(data.items.map((i: any) => ({ id: i.id, displayName: i.displayName })));
-      }
-    } catch (err: any) {
-      console.error('Failed to fetch engines:', err);
-    }
-  };
+  const [enginesLoading, setEnginesLoading] = useState(false);
 
   // Fetch DataStores for Engine
-  const fetchDataStores = useCallback(async (targetEngine: string) => {
+  const fetchDataStores = useCallback(async (targetEngine: string, targetApiVer = apiVersion) => {
     if (!targetEngine || !projectId) return;
     setDsLoading(true);
     setDsStatusMsg('(Fetching DataStores from GCP...)');
@@ -156,7 +134,7 @@ export default function App() {
         project_id: projectId,
         engine_id: targetEngine,
         location,
-        api_version: apiVersion
+        api_version: targetApiVer
       });
       if (customToken) params.set('custom_token', customToken);
       if (quotaProject) params.set('quota_project', quotaProject);
@@ -181,14 +159,58 @@ export default function App() {
     }
   }, [projectId, location, apiVersion, customToken, quotaProject]);
 
-  // Initial load
+  // Fetch Engines List from GCP
+  const fetchEngines = useCallback(async (targetApiVer = apiVersion) => {
+    setEnginesLoading(true);
+    try {
+      const params = new URLSearchParams({
+        project_id: projectId,
+        location,
+        resource_type: 'engines',
+        api_version: targetApiVer
+      });
+      if (customToken) params.set('custom_token', customToken);
+      if (quotaProject) params.set('quota_project', quotaProject);
+
+      const res = await fetch(`/api/list-resources?${params.toString()}`);
+      const data = await res.json();
+      if (data.status === 'ok' && data.items && data.items.length > 0) {
+        const list: Array<{ id: string; displayName: string }> = data.items.map((i: any) => ({
+          id: i.id,
+          displayName: i.displayName || i.id
+        }));
+        setDiscoveredEngines(list);
+
+        // If current engineId is empty or not in discovered list, pick first
+        setEngineId(prev => {
+          const match = list.find(e => e.id === prev);
+          const chosen = match ? prev : list[0].id;
+          fetchDataStores(chosen, targetApiVer);
+          return chosen;
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch engines:', err);
+    } finally {
+      setEnginesLoading(false);
+    }
+  }, [projectId, location, apiVersion, customToken, quotaProject, fetchDataStores]);
+
+  // Initial load: automatically discover engines from GCP!
   useEffect(() => {
-    fetchDataStores(engineId);
+    fetchEngines();
   }, []);
 
   const handleEngineChange = (newEngine: string) => {
     setEngineId(newEngine);
     fetchDataStores(newEngine);
+  };
+
+  const handleApiVersionChange = (newVer: string) => {
+    setApiVersion(newVer);
+    if (engineId) {
+      fetchDataStores(engineId, newVer);
+    }
   };
 
   // Real-time Endpoint URL
@@ -211,7 +233,7 @@ export default function App() {
     if (filterEnabled && filter.trim()) p.filter = filter.trim();
     if (canonicalFilterEnabled && canonicalFilter.trim()) p.canonicalFilter = canonicalFilter.trim();
     if (orderByEnabled && orderBy.trim()) p.orderBy = orderBy.trim();
-    if (relevanceThresholdEnabled && relevanceThreshold !== 'NONE') p.relevanceThreshold = relevanceThreshold;
+    if (relevanceThresholdEnabled && relevanceThreshold !== 'RELEVANCE_THRESHOLD_UNSPECIFIED') p.relevanceThreshold = relevanceThreshold;
     if (rankingExprEnabled && rankingExpr.trim()) p.rankingExpression = rankingExpr.trim();
     if (userPseudoIdEnabled && userPseudoId.trim()) p.userPseudoId = userPseudoId.trim();
 
@@ -243,9 +265,9 @@ export default function App() {
         ignoreNonSummarySeekingQuery: summaryNonSeeking,
         ignoreLowRelevantContent: summaryLowRelevant,
         useSemanticChunks: summarySemanticChunks,
-        ...(summaryLang ? { languageCode: summaryLang } : {}),
-        ...(summaryModel ? { modelSpec: { version: summaryModel } } : {}),
-        ...(summaryPreamble ? { modelPromptSpec: { preamble: summaryPreamble } } : {})
+        ...(summaryLang.trim() ? { languageCode: summaryLang.trim() } : {}),
+        ...(summaryModel.trim() ? { modelSpec: { version: summaryModel.trim() } } : {}),
+        ...(summaryPreamble.trim() ? { modelPromptSpec: { preamble: summaryPreamble.trim() } } : {})
       };
     }
     if (searchResultMode) cs.searchResultMode = searchResultMode;
@@ -332,7 +354,7 @@ export default function App() {
         filter: filterEnabled ? filter : undefined,
         canonical_filter: canonicalFilterEnabled ? canonicalFilter : undefined,
         order_by: orderByEnabled ? orderBy : undefined,
-        relevance_threshold: relevanceThresholdEnabled ? relevanceThreshold : undefined,
+        relevance_threshold: relevanceThresholdEnabled && relevanceThreshold !== 'RELEVANCE_THRESHOLD_UNSPECIFIED' ? relevanceThreshold : undefined,
         ranking_expression: rankingExprEnabled ? rankingExpr : undefined,
         user_pseudo_id: userPseudoIdEnabled ? userPseudoId : undefined,
         data_store_specs: selectedDsIds.size > 0 ? Array.from(selectedDsIds) : undefined,
@@ -344,9 +366,9 @@ export default function App() {
           ignore_non_summary_seeking_query: summaryNonSeeking,
           ignore_low_relevant_content: summaryLowRelevant,
           use_semantic_chunks: summarySemanticChunks,
-          language_code: summaryLang || undefined,
-          model_version: summaryModel || undefined,
-          model_prompt_preamble: summaryPreamble || undefined
+          language_code: summaryLang.trim() || undefined,
+          model_version: summaryModel.trim() || undefined,
+          model_prompt_preamble: summaryPreamble.trim() || undefined
         } : undefined,
         extractive_spec: extractiveEnabled ? {
           enabled: true,
@@ -478,38 +500,6 @@ export default function App() {
     return `// Grep filter: '${grepFilter}' (${matched.length} lines matched)\n\n` + matched.join('\n');
   }, [rawResponseText, grepFilter]);
 
-  // Presets
-  const applyPreset = (preset: string) => {
-    switch (preset) {
-      case 'posco_internal':
-        setRelevanceThresholdEnabled(true);
-        setRelevanceThreshold('LOW');
-        setSummaryEnabled(true);
-        setSummaryCitations(true);
-        setSummaryAdversarial(true);
-        setSummaryNonSeeking(true);
-        setSummaryLowRelevant(true);
-        setExtractiveEnabled(true);
-        setExtractiveAnswers(1);
-        setExtractiveSegments(1);
-        setExtractiveReturnScore(true);
-        break;
-      case 'chunks':
-        setSearchResultMode('CHUNKS');
-        setChunkPrev(2);
-        setChunkNext(2);
-        break;
-      case 'minimal':
-        setSummaryEnabled(false);
-        setExtractiveEnabled(false);
-        setSnippetReturn(false);
-        setFilterEnabled(false);
-        setQeEnabled(false);
-        setSpellEnabled(false);
-        break;
-    }
-  };
-
   // Response byte size calculation
   const responseSizeKb = useMemo(() => {
     return (new Blob([rawResponseText]).size / 1024).toFixed(1);
@@ -518,63 +508,70 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen w-full bg-background text-foreground overflow-hidden font-sans">
       
-      {/* 1. POSTMAN TOP HEADER BAR */}
+      {/* 1. TOP HEADER BAR WITH LIVE ENGINE & API VERSION CONTROLS */}
       <header className="h-11 border-b border-border bg-card/60 backdrop-blur px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="w-5 h-5 rounded bg-orange-500 flex items-center justify-center text-white font-black text-xs shadow-sm">
-            P
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold text-xs tracking-wider uppercase text-foreground">
-              Discovery Engine Search
-            </span>
-            <Badge variant="outline" className="text-[10px] h-4 font-mono font-normal text-muted-foreground px-1.5">
-              POSTMAN REST CLIENT
-            </Badge>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-xs tracking-wider uppercase text-foreground">
+            Discovery Engine Search API
+          </span>
         </div>
 
-        {/* Quick Target Info & Presets */}
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
-            <span className="text-foreground/80 font-semibold">{projectId}</span>
-            <span>/</span>
-            <span className="text-orange-500 font-bold">{apiVersion}</span>
-            <span>/</span>
-            <span className="text-foreground/80 font-semibold truncate max-w-[140px]">{engineId}</span>
+        {/* Live Engine & API Version Controls */}
+        <div className="flex items-center gap-2.5">
+          {/* Project ID */}
+          <div className="flex items-center gap-1 text-xs">
+            <span className="text-[11px] text-muted-foreground font-semibold">Project:</span>
+            <span className="font-mono text-xs font-semibold px-2 py-0.5 bg-muted rounded border border-border">
+              {projectId}
+            </span>
           </div>
 
-          <div className="h-4 w-px bg-border hidden md:block" />
+          <div className="h-4 w-px bg-border" />
 
-          {/* Quick Presets */}
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider hidden sm:inline mr-1">
-              Presets:
-            </span>
+          {/* Engine Dropdown (Auto-fetched from GCP) */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-muted-foreground font-semibold">Engine:</span>
+            <Select
+              value={engineId}
+              onChange={(e) => handleEngineChange(e.target.value)}
+              className="h-7 text-xs font-mono font-bold max-w-[280px]"
+            >
+              {discoveredEngines.length === 0 ? (
+                <option value={engineId}>{engineId} (Loading engines...)</option>
+              ) : (
+                discoveredEngines.map(eng => (
+                  <option key={eng.id} value={eng.id}>
+                    {eng.displayName} ({eng.id})
+                  </option>
+                ))
+              )}
+            </Select>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => applyPreset('posco_internal')}
-              className="h-6 text-[10px] px-2"
+              onClick={() => fetchEngines()}
+              disabled={enginesLoading}
+              className="h-7 px-2 text-xs"
+              title="Reload engines from Google Cloud"
             >
-              POSCO
+              <RefreshCw className={`h-3 w-3 ${enginesLoading ? 'animate-spin' : ''}`} />
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('chunks')}
-              className="h-6 text-[10px] px-2"
+          </div>
+
+          <div className="h-4 w-px bg-border" />
+
+          {/* API Version Dropdown */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-muted-foreground font-semibold">API:</span>
+            <Select
+              value={apiVersion}
+              onChange={(e) => handleApiVersionChange(e.target.value)}
+              className="h-7 text-xs font-mono font-bold w-24"
             >
-              Chunks
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => applyPreset('minimal')}
-              className="h-6 text-[10px] px-2"
-            >
-              Minimal
-            </Button>
+              <option value="v1alpha">v1alpha</option>
+              <option value="v1beta">v1beta</option>
+              <option value="v1">v1</option>
+            </Select>
           </div>
         </div>
       </header>
@@ -840,7 +837,8 @@ export default function App() {
                           disabled={!relevanceThresholdEnabled}
                           className="h-7 text-xs font-mono"
                         >
-                          <option value="NONE">NONE</option>
+                          <option value="RELEVANCE_THRESHOLD_UNSPECIFIED">RELEVANCE_THRESHOLD_UNSPECIFIED</option>
+                          <option value="LOWEST">LOWEST</option>
                           <option value="LOW">LOW</option>
                           <option value="MEDIUM">MEDIUM</option>
                           <option value="HIGH">HIGH</option>
@@ -1027,31 +1025,37 @@ export default function App() {
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px] text-muted-foreground">Language Code</Label>
+                        <Label className="text-[10px] text-muted-foreground">languageCode (BCP-47)</Label>
                         <Input
                           value={summaryLang}
                           onChange={(e) => setSummaryLang(e.target.value)}
+                          placeholder="e.g. ko, en (optional)"
                           className="mt-0.5 h-7 text-xs font-mono"
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px] text-muted-foreground">Model Spec</Label>
-                        <Select
+                        <Label className="text-[10px] text-muted-foreground">
+                          modelSpec.version <span className="text-[9px]">(stable, preview)</span>
+                        </Label>
+                        <Input
+                          list="model-spec-versions"
                           value={summaryModel}
                           onChange={(e) => setSummaryModel(e.target.value)}
+                          placeholder="e.g. stable, preview (optional)"
                           className="mt-0.5 h-7 text-xs font-mono"
-                        >
-                          <option value="gemini-1.5-flash-002/default">gemini-1.5-flash-002/default</option>
-                          <option value="gemini-1.5-pro-002/default">gemini-1.5-pro-002/default</option>
-                          <option value="gemini-1.0-pro-002/default">gemini-1.0-pro-002/default</option>
-                        </Select>
+                        />
+                        <datalist id="model-spec-versions">
+                          <option value="stable">stable (GA fine-tuned)</option>
+                          <option value="preview">preview (Public preview)</option>
+                        </datalist>
                       </div>
 
                       <div className="col-span-full">
-                        <Label className="text-[10px] text-muted-foreground">Custom Model Prompt Preamble</Label>
+                        <Label className="text-[10px] text-muted-foreground">modelPromptSpec.preamble (Optional)</Label>
                         <Textarea
                           value={summaryPreamble}
                           onChange={(e) => setSummaryPreamble(e.target.value)}
+                          placeholder="Instructions at the beginning of prompt (optional)"
                           className="mt-0.5 h-12 text-xs font-mono resize-none"
                         />
                       </div>
@@ -1261,41 +1265,47 @@ export default function App() {
                   </div>
 
                   <div className="space-y-1.5">
-                    {boostSpecs.map((b, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <Input
-                          placeholder='e.g. category: ANY("Security")'
-                          value={b.condition}
-                          onChange={(e) => {
-                            const copy = [...boostSpecs];
-                            copy[idx].condition = e.target.value;
-                            setBoostSpecs(copy);
-                          }}
-                          className="h-7 text-xs font-mono flex-1"
-                        />
-                        <Input
-                          type="number"
-                          step="0.1"
-                          min="-1"
-                          max="1"
-                          value={b.boost}
-                          onChange={(e) => {
-                            const copy = [...boostSpecs];
-                            copy[idx].boost = Number(e.target.value);
-                            setBoostSpecs(copy);
-                          }}
-                          className="h-7 w-20 text-xs font-mono"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-destructive"
-                          onClick={() => setBoostSpecs(boostSpecs.filter((_, i) => i !== idx))}
-                        >
-                          ×
-                        </Button>
+                    {boostSpecs.length === 0 ? (
+                      <div className="text-[11px] text-muted-foreground italic py-1">
+                        No condition boosts configured. Click '+ Add Boost' to specify condition boost specs.
                       </div>
-                    ))}
+                    ) : (
+                      boostSpecs.map((b, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <Input
+                            placeholder='e.g. tag: ANY("public")'
+                            value={b.condition}
+                            onChange={(e) => {
+                              const copy = [...boostSpecs];
+                              copy[idx].condition = e.target.value;
+                              setBoostSpecs(copy);
+                            }}
+                            className="h-7 text-xs font-mono flex-1"
+                          />
+                          <Input
+                            type="number"
+                            step="0.1"
+                            min="-1"
+                            max="1"
+                            value={b.boost}
+                            onChange={(e) => {
+                              const copy = [...boostSpecs];
+                              copy[idx].boost = Number(e.target.value);
+                              setBoostSpecs(copy);
+                            }}
+                            className="h-7 w-20 text-xs font-mono"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-destructive"
+                            onClick={() => setBoostSpecs(boostSpecs.filter((_, i) => i !== idx))}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))
+                    )}
                   </div>
 
                   <div className="pt-2">
