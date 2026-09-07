@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,10 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { 
-  Search, Copy, Download, RefreshCw, Check, Terminal, Zap, Filter, Code2, 
+  Search, Copy, Download, RefreshCw, Check, Terminal, Zap, Code2, 
   Layers, CheckSquare, Square, Send, Sliders, Database, Key, Settings, 
   Sparkles, FileCode, Clock, ShieldCheck, Play, ArrowRight
 } from 'lucide-react';
+import { JsonTreeViewer } from '@/components/JsonTreeViewer';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface IDataStoreItem {
   id: string;
@@ -21,89 +23,105 @@ interface IDataStoreItem {
   parserType: 'LAYOUT' | 'DIGITAL' | 'OCR' | 'DEFAULT' | 'UNSPECIFIED';
 }
 
+const STORAGE_KEY = 'vais_playground_config_v1';
+
+function loadStoredConfig(): Record<string, any> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (e) {
+    console.error('Failed to load config from localStorage', e);
+  }
+  return {};
+}
+
+const savedConfig = loadStoredConfig();
+
 export default function App() {
   // Target Config State (Location is fixed to app's location 'global')
-  const [projectId, setProjectId] = useState('agentspace-test-469511');
-  const [apiVersion, setApiVersion] = useState('v1');
+  const [projectId, setProjectId] = useState(() => savedConfig.projectId ?? 'agentspace-test-469511');
+  const [apiVersion, setApiVersion] = useState(() => savedConfig.apiVersion ?? 'v1');
   const location = 'global'; // Fixed to app's location per user requirement
-  const [servingConfigId, setServingConfigId] = useState('default_search');
-  const [engineId, setEngineId] = useState('gemini-enhanced-parser-tes_1775720801989');
+  const [servingConfigId, setServingConfigId] = useState(() => savedConfig.servingConfigId ?? 'default_search');
+  const [engineId, setEngineId] = useState(() => savedConfig.engineId ?? 'gemini-enhanced-parser-tes_1775720801989');
   const [discoveredEngines, setDiscoveredEngines] = useState<Array<{ id: string; displayName: string }>>([]);
-  const [customToken, setCustomToken] = useState('');
-  const [quotaProject, setQuotaProject] = useState('');
+  const [customToken, setCustomToken] = useState(() => savedConfig.customToken ?? '');
+  const [quotaProject, setQuotaProject] = useState(() => savedConfig.quotaProject ?? '');
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState('params');
+  const [activeTab, setActiveTab] = useState(() => savedConfig.activeTab ?? 'params');
 
   // DataStores state: Load ALL DataStores in project + track which are attached to active engine
   const [allProjectDataStores, setAllProjectDataStores] = useState<IDataStoreItem[]>([]);
   const [engineAttachedDsIds, setEngineAttachedDsIds] = useState<Set<string>>(new Set());
-  const [selectedDsIds, setSelectedDsIds] = useState<Set<string>>(new Set());
+  const [selectedDsIds, setSelectedDsIds] = useState<Set<string>>(() => new Set(savedConfig.selectedDsIds ?? []));
+  const hasLoadedSavedDs = useRef(Array.isArray(savedConfig.selectedDsIds) && savedConfig.selectedDsIds.length > 0);
   const [dsLoading, setDsLoading] = useState(false);
   const [dsStatusMsg, setDsStatusMsg] = useState('');
-  const [dsFilterMode, setDsFilterMode] = useState<'all' | 'attached' | 'selected'>('all');
   const [dsSearchQuery, setDsSearchQuery] = useState('');
 
   // Request Body Middle Column View Mode & Copy State
-  const [requestBodyMode, setRequestBodyMode] = useState<'json' | 'curl'>('json');
+  const [requestBodyMode, setRequestBodyMode] = useState<'json' | 'curl'>(() => savedConfig.requestBodyMode ?? 'json');
   const [copiedPayload, setCopiedPayload] = useState(false);
 
   // Query & Properties State
-  const [query, setQuery] = useState('Gemini Enterprise');
+  const [query, setQuery] = useState(() => savedConfig.query ?? 'Gemini Enterprise');
   
   // Core Search Props (Table format like Postman Params)
-  const [pageSizeEnabled, setPageSizeEnabled] = useState(true);
-  const [pageSize, setPageSize] = useState(10);
-  const [offsetEnabled, setOffsetEnabled] = useState(false);
-  const [offset, setOffset] = useState(0);
-  const [pageTokenEnabled, setPageTokenEnabled] = useState(false);
-  const [pageToken, setPageToken] = useState('');
-  const [filterEnabled, setFilterEnabled] = useState(false);
-  const [filter, setFilter] = useState('');
-  const [canonicalFilterEnabled, setCanonicalFilterEnabled] = useState(false);
-  const [canonicalFilter, setCanonicalFilter] = useState('');
-  const [orderByEnabled, setOrderByEnabled] = useState(false);
-  const [orderBy, setOrderBy] = useState('');
-  const [relevanceThresholdEnabled, setRelevanceThresholdEnabled] = useState(false);
-  const [relevanceThreshold, setRelevanceThreshold] = useState('RELEVANCE_THRESHOLD_UNSPECIFIED');
-  const [rankingExprEnabled, setRankingExprEnabled] = useState(false);
-  const [rankingExpr, setRankingExpr] = useState('');
-  const [userPseudoIdEnabled, setUserPseudoIdEnabled] = useState(false);
-  const [userPseudoId, setUserPseudoId] = useState('');
+  const [pageSizeEnabled, setPageSizeEnabled] = useState(() => savedConfig.pageSizeEnabled ?? true);
+  const [pageSize, setPageSize] = useState<number>(() => savedConfig.pageSize ?? 10);
+  const [offsetEnabled, setOffsetEnabled] = useState(() => savedConfig.offsetEnabled ?? false);
+  const [offset, setOffset] = useState<number>(() => savedConfig.offset ?? 0);
+  const [pageTokenEnabled, setPageTokenEnabled] = useState(() => savedConfig.pageTokenEnabled ?? false);
+  const [pageToken, setPageToken] = useState(() => savedConfig.pageToken ?? '');
+  const [filterEnabled, setFilterEnabled] = useState(() => savedConfig.filterEnabled ?? false);
+  const [filter, setFilter] = useState(() => savedConfig.filter ?? '');
+  const [canonicalFilterEnabled, setCanonicalFilterEnabled] = useState(() => savedConfig.canonicalFilterEnabled ?? false);
+  const [canonicalFilter, setCanonicalFilter] = useState(() => savedConfig.canonicalFilter ?? '');
+  const [orderByEnabled, setOrderByEnabled] = useState(() => savedConfig.orderByEnabled ?? false);
+  const [orderBy, setOrderBy] = useState(() => savedConfig.orderBy ?? '');
+  const [relevanceThresholdEnabled, setRelevanceThresholdEnabled] = useState(() => savedConfig.relevanceThresholdEnabled ?? false);
+  const [relevanceThreshold, setRelevanceThreshold] = useState(() => savedConfig.relevanceThreshold ?? 'RELEVANCE_THRESHOLD_UNSPECIFIED');
+  const [rankingExprEnabled, setRankingExprEnabled] = useState(() => savedConfig.rankingExprEnabled ?? false);
+  const [rankingExpr, setRankingExpr] = useState(() => savedConfig.rankingExpr ?? '');
+  const [userPseudoIdEnabled, setUserPseudoIdEnabled] = useState(() => savedConfig.userPseudoIdEnabled ?? false);
+  const [userPseudoId, setUserPseudoId] = useState(() => savedConfig.userPseudoId ?? '');
 
   // summarySpec
-  const [summaryEnabled, setSummaryEnabled] = useState(true);
-  const [summaryCount, setSummaryCount] = useState(3);
-  const [summaryLang, setSummaryLang] = useState('');
-  const [summaryCitations, setSummaryCitations] = useState(true);
-  const [summaryAdversarial, setSummaryAdversarial] = useState(true);
-  const [summaryNonSeeking, setSummaryNonSeeking] = useState(true);
-  const [summaryLowRelevant, setSummaryLowRelevant] = useState(true);
-  const [summarySemanticChunks, setSummarySemanticChunks] = useState(false);
-  const [summaryModel, setSummaryModel] = useState('');
+  const [summaryEnabled, setSummaryEnabled] = useState(() => savedConfig.summaryEnabled ?? true);
+  const [summaryCount, setSummaryCount] = useState<number>(() => savedConfig.summaryCount ?? 3);
+  const [summaryLang, setSummaryLang] = useState(() => savedConfig.summaryLang ?? '');
+  const [summaryCitations, setSummaryCitations] = useState(() => savedConfig.summaryCitations ?? true);
+  const [summaryAdversarial, setSummaryAdversarial] = useState(() => savedConfig.summaryAdversarial ?? true);
+  const [summaryNonSeeking, setSummaryNonSeeking] = useState(() => savedConfig.summaryNonSeeking ?? true);
+  const [summaryLowRelevant, setSummaryLowRelevant] = useState(() => savedConfig.summaryLowRelevant ?? true);
+  const [summarySemanticChunks, setSummarySemanticChunks] = useState(() => savedConfig.summarySemanticChunks ?? false);
+  const [summaryModel, setSummaryModel] = useState(() => savedConfig.summaryModel ?? '');
 
   // extractiveContentSpec
-  const [extractiveEnabled, setExtractiveEnabled] = useState(true);
-  const [extractiveAnswers, setExtractiveAnswers] = useState(1);
-  const [extractiveSegments, setExtractiveSegments] = useState(1);
-  const [extractiveReturnScore, setExtractiveReturnScore] = useState(true);
-  const [extractivePrev, setExtractivePrev] = useState(0);
-  const [extractiveNext, setExtractiveNext] = useState(0);
+  const [extractiveEnabled, setExtractiveEnabled] = useState(() => savedConfig.extractiveEnabled ?? true);
+  const [extractiveAnswers, setExtractiveAnswers] = useState<number>(() => savedConfig.extractiveAnswers ?? 1);
+  const [extractiveSegments, setExtractiveSegments] = useState<number>(() => savedConfig.extractiveSegments ?? 1);
+  const [extractiveReturnScore, setExtractiveReturnScore] = useState(() => savedConfig.extractiveReturnScore ?? true);
+  const [extractivePrev, setExtractivePrev] = useState<number>(() => savedConfig.extractivePrev ?? 0);
+  const [extractiveNext, setExtractiveNext] = useState<number>(() => savedConfig.extractiveNext ?? 0);
 
   // snippetSpec & mode
-  const [snippetReturn, setSnippetReturn] = useState(true);
-  const [snippetMax, setSnippetMax] = useState(2);
-  const [searchResultMode, setSearchResultMode] = useState<'DOCUMENTS' | 'CHUNKS'>('DOCUMENTS');
-  const [chunkPrev, setChunkPrev] = useState(1);
-  const [chunkNext, setChunkNext] = useState(1);
+  const [snippetReturn, setSnippetReturn] = useState(() => savedConfig.snippetReturn ?? true);
+  const [snippetMax, setSnippetMax] = useState<number>(() => savedConfig.snippetMax ?? 2);
+  const [searchResultMode, setSearchResultMode] = useState<'DOCUMENTS' | 'CHUNKS'>(() => savedConfig.searchResultMode ?? 'DOCUMENTS');
+  const [chunkPrev, setChunkPrev] = useState<number>(() => savedConfig.chunkPrev ?? 1);
+  const [chunkNext, setChunkNext] = useState<number>(() => savedConfig.chunkNext ?? 1);
 
   // Query understanding
-  const [qeEnabled, setQeEnabled] = useState(true);
-  const [qeCondition, setQeCondition] = useState<'AUTO' | 'DISABLED'>('AUTO');
-  const [qePin, setQePin] = useState(false);
-  const [spellEnabled, setSpellEnabled] = useState(true);
-  const [spellMode, setSpellMode] = useState<'AUTO' | 'SUGGESTION_ONLY'>('AUTO');
-  const [nlFilterCondition, setNlFilterCondition] = useState<'DISABLED' | 'ENABLED'>('DISABLED');
+  const [qeEnabled, setQeEnabled] = useState(() => savedConfig.qeEnabled ?? true);
+  const [qeCondition, setQeCondition] = useState<'AUTO' | 'DISABLED'>(() => savedConfig.qeCondition ?? 'AUTO');
+  const [qePin, setQePin] = useState(() => savedConfig.qePin ?? false);
+  const [spellEnabled, setSpellEnabled] = useState(() => savedConfig.spellEnabled ?? true);
+  const [spellMode, setSpellMode] = useState<'AUTO' | 'SUGGESTION_ONLY'>(() => savedConfig.spellMode ?? 'AUTO');
+  const [nlFilterCondition, setNlFilterCondition] = useState<'DISABLED' | 'ENABLED'>(() => savedConfig.nlFilterCondition ?? 'DISABLED');
 
   // Results & Execution state
   const [isSearching, setIsSearching] = useState(false);
@@ -113,14 +131,22 @@ export default function App() {
   const [docCount, setDocCount] = useState(0);
   const [totalSize, setTotalSize] = useState<number | null>(null);
   const [rawResponseText, setRawResponseText] = useState('{\n  "status": "Ready",\n  "hint": "Click [ SEND ] or press (Cmd/Ctrl + Enter) to execute live Google Cloud Discovery Engine Search."\n}');
-  const [grepFilter, setGrepFilter] = useState('');
+  const [responseViewMode, setResponseViewMode] = useState<'tree' | 'raw'>(() => savedConfig.responseViewMode ?? 'tree');
   const [copiedCurl, setCopiedCurl] = useState(false);
   const [copiedRaw, setCopiedRaw] = useState(false);
+
+  const parsedResponseJson = useMemo(() => {
+    try {
+      return JSON.parse(rawResponseText);
+    } catch {
+      return null;
+    }
+  }, [rawResponseText]);
 
   const [enginesLoading, setEnginesLoading] = useState(false);
 
   // Fetch All DataStores in Project & identify attached DataStores for active engine
-  const fetchAllDataStores = useCallback(async (targetEngine: string, targetApiVer = apiVersion) => {
+  const fetchAllDataStores = useCallback(async (targetEngine: string, targetApiVer = apiVersion, isManualEngineChange = false) => {
     if (!projectId) return;
     setDsLoading(true);
     setDsStatusMsg('Loading DataStores from Google Cloud Discovery Engine...');
@@ -162,8 +188,13 @@ export default function App() {
           const attachedList: IDataStoreItem[] = engData.dataStores || [];
           const attachedIds = new Set(attachedList.map(d => d.id));
           setEngineAttachedDsIds(attachedIds);
-          // Default selection targets attached DataStores
-          setSelectedDsIds(new Set(attachedIds));
+          
+          if (hasLoadedSavedDs.current && !isManualEngineChange) {
+            // Preserve user's saved data store selections across page reloads
+            hasLoadedSavedDs.current = false;
+          } else {
+            setSelectedDsIds(new Set(attachedIds));
+          }
           setDsStatusMsg(`(${attachedIds.size} attached to '${engData.displayName || targetEngine}' / ${allList.length} total in project)`);
         } else {
           setEngineAttachedDsIds(new Set());
@@ -226,31 +257,36 @@ export default function App() {
 
   const handleEngineChange = (newEngine: string) => {
     setEngineId(newEngine);
-    fetchAllDataStores(newEngine);
+    fetchAllDataStores(newEngine, apiVersion, true);
   };
 
   const handleApiVersionChange = (newVer: string) => {
     setApiVersion(newVer);
     if (engineId) {
-      fetchAllDataStores(engineId, newVer);
+      fetchAllDataStores(engineId, newVer, false);
     }
   };
 
-  // Filtered DataStores list based on tab and search query
+  // Filtered DataStores list based on search query, with engine-attached DataStores at the top
   const filteredDataStores = useMemo(() => {
-    return allProjectDataStores.filter(ds => {
-      if (dsFilterMode === 'attached' && !engineAttachedDsIds.has(ds.id)) return false;
-      if (dsFilterMode === 'selected' && !selectedDsIds.has(ds.id)) return false;
-      if (dsSearchQuery.trim()) {
-        const q = dsSearchQuery.trim().toLowerCase();
-        const matchesId = ds.id.toLowerCase().includes(q);
-        const matchesName = (ds.displayName || '').toLowerCase().includes(q);
-        const matchesParser = (ds.parserType || '').toLowerCase().includes(q);
-        return matchesId || matchesName || matchesParser;
-      }
-      return true;
-    });
-  }, [allProjectDataStores, engineAttachedDsIds, selectedDsIds, dsFilterMode, dsSearchQuery]);
+    return allProjectDataStores
+      .filter(ds => {
+        if (dsSearchQuery.trim()) {
+          const q = dsSearchQuery.trim().toLowerCase();
+          const matchesId = ds.id.toLowerCase().includes(q);
+          const matchesName = (ds.displayName || '').toLowerCase().includes(q);
+          const matchesParser = (ds.parserType || '').toLowerCase().includes(q);
+          return matchesId || matchesName || matchesParser;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const aAttached = engineAttachedDsIds.has(a.id) ? 1 : 0;
+        const bAttached = engineAttachedDsIds.has(b.id) ? 1 : 0;
+        if (aAttached !== bAttached) return bAttached - aAttached; // attached first
+        return a.id.localeCompare(b.id);
+      });
+  }, [allProjectDataStores, engineAttachedDsIds, dsSearchQuery]);
 
 
   // Real-time Endpoint URL
@@ -505,13 +541,127 @@ export default function App() {
     setIsSearching(false);
   };
 
-  // Filtered raw text
-  const displayedRawText = useMemo(() => {
-    if (!grepFilter.trim()) return rawResponseText;
-    const lines = rawResponseText.split('\n');
-    const matched = lines.filter(l => l.toLowerCase().includes(grepFilter.toLowerCase()));
-    return `// Grep filter: '${grepFilter}' (${matched.length} lines matched)\n\n` + matched.join('\n');
-  }, [rawResponseText, grepFilter]);
+  // Automatically persist user settings and parameters to localStorage
+  useEffect(() => {
+    const configToSave = {
+      projectId,
+      apiVersion,
+      servingConfigId,
+      engineId,
+      customToken,
+      quotaProject,
+      activeTab,
+      selectedDsIds: Array.from(selectedDsIds),
+      requestBodyMode,
+      responseViewMode,
+      query,
+      pageSizeEnabled,
+      pageSize,
+      offsetEnabled,
+      offset,
+      pageTokenEnabled,
+      pageToken,
+      filterEnabled,
+      filter,
+      canonicalFilterEnabled,
+      canonicalFilter,
+      orderByEnabled,
+      orderBy,
+      relevanceThresholdEnabled,
+      relevanceThreshold,
+      rankingExprEnabled,
+      rankingExpr,
+      userPseudoIdEnabled,
+      userPseudoId,
+      summaryEnabled,
+      summaryCount,
+      summaryLang,
+      summaryCitations,
+      summaryAdversarial,
+      summaryNonSeeking,
+      summaryLowRelevant,
+      summarySemanticChunks,
+      summaryModel,
+      extractiveEnabled,
+      extractiveAnswers,
+      extractiveSegments,
+      extractiveReturnScore,
+      extractivePrev,
+      extractiveNext,
+      snippetReturn,
+      snippetMax,
+      searchResultMode,
+      chunkPrev,
+      chunkNext,
+      qeEnabled,
+      qeCondition,
+      qePin,
+      spellEnabled,
+      spellMode,
+      nlFilterCondition,
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(configToSave));
+    } catch (e) {
+      console.error('Failed to save config to localStorage', e);
+    }
+  }, [
+    projectId,
+    apiVersion,
+    servingConfigId,
+    engineId,
+    customToken,
+    quotaProject,
+    activeTab,
+    selectedDsIds,
+    requestBodyMode,
+    responseViewMode,
+    query,
+    pageSizeEnabled,
+    pageSize,
+    offsetEnabled,
+    offset,
+    pageTokenEnabled,
+    pageToken,
+    filterEnabled,
+    filter,
+    canonicalFilterEnabled,
+    canonicalFilter,
+    orderByEnabled,
+    orderBy,
+    relevanceThresholdEnabled,
+    relevanceThreshold,
+    rankingExprEnabled,
+    rankingExpr,
+    userPseudoIdEnabled,
+    userPseudoId,
+    summaryEnabled,
+    summaryCount,
+    summaryLang,
+    summaryCitations,
+    summaryAdversarial,
+    summaryNonSeeking,
+    summaryLowRelevant,
+    summarySemanticChunks,
+    summaryModel,
+    extractiveEnabled,
+    extractiveAnswers,
+    extractiveSegments,
+    extractiveReturnScore,
+    extractivePrev,
+    extractiveNext,
+    snippetReturn,
+    snippetMax,
+    searchResultMode,
+    chunkPrev,
+    chunkNext,
+    qeEnabled,
+    qeCondition,
+    qePin,
+    spellEnabled,
+    spellMode,
+    nlFilterCondition,
+  ]);
 
   // Response byte size calculation
   const responseSizeKb = useMemo(() => {
@@ -559,16 +709,6 @@ export default function App() {
                 ))
               )}
             </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchEngines()}
-              disabled={enginesLoading}
-              className="h-7 px-2 text-xs"
-              title="Reload engines from Google Cloud"
-            >
-              <RefreshCw className={`h-3 w-3 ${enginesLoading ? 'animate-spin' : ''}`} />
-            </Button>
           </div>
 
           <div className="h-4 w-px bg-border" />
@@ -672,12 +812,6 @@ export default function App() {
                 <TabsTrigger value="specs" className="flex items-center gap-1.5 text-xs py-1 px-2">
                   <Sparkles className="h-3.5 w-3.5" />
                   <span>Specs</span>
-                </TabsTrigger>
-
-                <TabsTrigger value="headers" className="flex items-center gap-1.5 text-xs py-1 px-2">
-                  <Key className="h-3.5 w-3.5" />
-                  <span>Headers</span>
-                  <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1 font-mono">3</Badge>
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -930,100 +1064,20 @@ export default function App() {
                   </Button>
                 </div>
 
-                {/* Filter Scope Pills & Quick Selection */}
-                <div className="space-y-2 pt-1">
-                  <div className="flex items-center justify-between gap-2">
-                    {/* Filter scope buttons */}
-                    <div className="flex items-center bg-muted/40 p-0.5 rounded border border-border text-[10.5px]">
-                      <button
-                        onClick={() => setDsFilterMode('all')}
-                        className={`px-2 py-0.5 rounded font-medium transition-colors ${
-                          dsFilterMode === 'all'
-                            ? 'bg-background shadow-xs text-foreground font-bold'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        All ({allProjectDataStores.length})
-                      </button>
-                      <button
-                        onClick={() => setDsFilterMode('attached')}
-                        className={`px-2 py-0.5 rounded font-medium transition-colors ${
-                          dsFilterMode === 'attached'
-                            ? 'bg-background shadow-xs text-foreground font-bold'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        Attached ({engineAttachedDsIds.size})
-                      </button>
-                      <button
-                        onClick={() => setDsFilterMode('selected')}
-                        className={`px-2 py-0.5 rounded font-medium transition-colors ${
-                          dsFilterMode === 'selected'
-                            ? 'bg-background shadow-xs text-foreground font-bold'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        Selected ({selectedDsIds.size})
-                      </button>
-                    </div>
-
-                    {/* Quick Selection Buttons */}
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const next = new Set(selectedDsIds);
-                          filteredDataStores.forEach(d => next.add(d.id));
-                          setSelectedDsIds(next);
-                        }}
-                        className="h-6 text-[10.5px] px-1.5"
-                      >
-                        Select All
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (dsFilterMode === 'all') {
-                            setSelectedDsIds(new Set());
-                          } else {
-                            const next = new Set(selectedDsIds);
-                            filteredDataStores.forEach(d => next.delete(d.id));
-                            setSelectedDsIds(next);
-                          }
-                        }}
-                        className="h-6 text-[10.5px] px-1.5"
-                      >
-                        Clear
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedDsIds(new Set(engineAttachedDsIds))}
-                        className="h-6 text-[10.5px] px-1.5 text-blue-500 font-medium"
-                        title="Select only the DataStores attached to the current engine"
-                      >
-                        Attached Only
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Search input */}
-                  <div className="relative">
-                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <Input
-                      value={dsSearchQuery}
-                      onChange={(e) => setDsSearchQuery(e.target.value)}
-                      placeholder={`Search ${allProjectDataStores.length} DataStores by ID, name, or parser...`}
-                      className="h-7 pl-8 text-xs font-mono bg-background"
-                    />
-                  </div>
+                {/* Search input */}
+                <div className="relative pt-1">
+                  <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none mt-0.5" />
+                  <Input
+                    value={dsSearchQuery}
+                    onChange={(e) => setDsSearchQuery(e.target.value)}
+                    placeholder={`Search ${allProjectDataStores.length} DataStores by ID, name, or parser...`}
+                    className="h-7 pl-8 text-xs font-mono bg-background"
+                  />
                 </div>
 
                 <div className="text-[10.5px] font-mono text-muted-foreground flex items-center justify-between">
                   <span>Status: {dsStatusMsg || (dsLoading ? 'Loading...' : 'Ready')}</span>
-                  <span>Showing {filteredDataStores.length} of {allProjectDataStores.length}</span>
+                  <span>{selectedDsIds.size} selected</span>
                 </div>
 
                 {/* DataStores List */}
@@ -1234,102 +1288,144 @@ export default function App() {
                   )}
                 </div>
 
-                {/* 3. Snippets & Chunks Mode */}
-                <div className="border border-border rounded-md p-3 bg-card space-y-2.5">
-                  <div className="font-bold text-xs">Search Result Mode & Snippets</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] text-muted-foreground">searchResultMode</Label>
-                      <Select
-                        value={searchResultMode}
-                        onChange={(e) => setSearchResultMode(e.target.value as any)}
-                        className="h-7 text-xs font-mono font-semibold"
-                      >
-                        <option value="DOCUMENTS">DOCUMENTS (Full Document Mode)</option>
-                        <option value="CHUNKS">CHUNKS (Direct Chunk Return Mode)</option>
-                      </Select>
-                      {searchResultMode === 'CHUNKS' && (
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                          <div>
-                            <Label className="text-[9.5px] text-muted-foreground">numPreviousChunks</Label>
-                            <Input
-                              type="number"
-                              value={chunkPrev}
-                              onChange={(e) => setChunkPrev(Number(e.target.value))}
-                              className="h-6 text-xs font-mono"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[9.5px] text-muted-foreground">numNextChunks</Label>
-                            <Input
-                              type="number"
-                              value={chunkNext}
-                              onChange={(e) => setChunkNext(Number(e.target.value))}
-                              className="h-6 text-xs font-mono"
-                            />
-                          </div>
-                        </div>
-                      )}
+                {/* 3. Search Result Mode (DOCUMENTS vs CHUNKS) */}
+                <div className="border border-border rounded-md p-3.5 bg-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-xs uppercase tracking-wide">
+                        searchResultMode
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Choose whether to return full documents or direct chunks
+                      </p>
                     </div>
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      {searchResultMode}
+                    </Badge>
+                  </div>
 
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 cursor-pointer font-bold text-xs pt-1">
-                        <Checkbox checked={snippetReturn} onCheckedChange={(c) => setSnippetReturn(!!c)} />
-                        <span>snippetSpec.returnSnippet</span>
-                      </label>
-                      {snippetReturn && (
-                        <div>
-                          <Label className="text-[9.5px] text-muted-foreground">maxSnippetCount</Label>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-muted/40 rounded-md border border-border">
+                    <button
+                      type="button"
+                      onClick={() => setSearchResultMode('DOCUMENTS')}
+                      className={`py-1.5 px-3 rounded text-xs font-mono font-medium transition-colors ${
+                        searchResultMode === 'DOCUMENTS'
+                          ? 'bg-background shadow-xs text-foreground font-bold'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      DOCUMENTS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSearchResultMode('CHUNKS')}
+                      className={`py-1.5 px-3 rounded text-xs font-mono font-medium transition-colors ${
+                        searchResultMode === 'CHUNKS'
+                          ? 'bg-background shadow-xs text-emerald-500 font-bold'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      CHUNKS
+                    </button>
+                  </div>
+
+                  {searchResultMode === 'CHUNKS' && (
+                    <div className="p-3 bg-muted/20 rounded-md border border-border/60 space-y-2.5">
+                      <div className="text-[11px] font-medium text-foreground">
+                        chunkSpec (Neighboring Context Chunks)
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-[10.5px] text-muted-foreground">numPreviousChunks</Label>
                           <Input
                             type="number"
-                            value={snippetMax}
-                            onChange={(e) => setSnippetMax(Number(e.target.value))}
-                            className="h-7 text-xs font-mono mt-0.5"
+                            value={chunkPrev}
+                            onChange={(e) => setChunkPrev(Number(e.target.value))}
+                            className="h-7 text-xs font-mono bg-background"
                           />
                         </div>
-                      )}
+                        <div className="space-y-1">
+                          <Label className="text-[10.5px] text-muted-foreground">numNextChunks</Label>
+                          <Input
+                            type="number"
+                            value={chunkNext}
+                            onChange={(e) => setChunkNext(Number(e.target.value))}
+                            className="h-7 text-xs font-mono bg-background"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                {/* 4. Query Expansion, Spell, NL Understanding */}
-                <div className="border border-border rounded-md p-3 bg-card space-y-2.5">
-                  <div className="font-bold text-xs">Query Understanding & Optimization</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground">Query Expansion</Label>
+                {/* 4. Snippet Spec */}
+                <div className="border border-border rounded-md p-3.5 bg-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-xs">
+                      <Checkbox checked={snippetReturn} onCheckedChange={(c) => setSnippetReturn(!!c)} />
+                      <span>contentSearchSpec.snippetSpec</span>
+                    </label>
+                    <Badge variant={snippetReturn ? 'default' : 'secondary'} className="text-[9px]">
+                      {snippetReturn ? 'ENABLED' : 'DISABLED'}
+                    </Badge>
+                  </div>
+
+                  {snippetReturn && (
+                    <div className="pt-2 border-t border-border/50 flex items-center justify-between gap-4">
+                      <div>
+                        <Label className="text-[11px] font-medium text-foreground">maxSnippetCount</Label>
+                        <p className="text-[10.5px] text-muted-foreground">Maximum text snippets per document</p>
+                      </div>
+                      <Input
+                        type="number"
+                        value={snippetMax}
+                        onChange={(e) => setSnippetMax(Number(e.target.value))}
+                        className="h-7 w-24 text-xs font-mono bg-background text-center shrink-0"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* 5. Query Expansion, Spell, NL Understanding */}
+                <div className="border border-border rounded-md p-3.5 bg-card space-y-3">
+                  <div className="font-bold text-xs uppercase tracking-wide">
+                    Query Understanding & Optimization
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="space-y-1">
+                      <Label className="text-[10.5px] text-muted-foreground">Query Expansion</Label>
                       <Select
                         value={qeCondition}
                         onChange={(e) => setQeCondition(e.target.value as any)}
-                        className="mt-0.5 h-7 text-xs font-mono"
+                        className="h-7 text-xs font-mono"
                       >
                         <option value="AUTO">AUTO (Recommended)</option>
                         <option value="DISABLED">DISABLED</option>
                       </Select>
-                      <label className="flex items-center gap-1.5 cursor-pointer text-[10.5px] mt-1">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-[10.5px] pt-1">
                         <Checkbox checked={qePin} onCheckedChange={(c) => setQePin(!!c)} />
-                        <span>pinUnexpandedResults</span>
+                        <span>pinUnexpanded</span>
                       </label>
                     </div>
 
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground">Spell Correction</Label>
+                    <div className="space-y-1">
+                      <Label className="text-[10.5px] text-muted-foreground">Spell Correction</Label>
                       <Select
                         value={spellMode}
                         onChange={(e) => setSpellMode(e.target.value as any)}
-                        className="mt-0.5 h-7 text-xs font-mono"
+                        className="h-7 text-xs font-mono"
                       >
                         <option value="AUTO">AUTO</option>
                         <option value="SUGGESTION_ONLY">SUGGESTION_ONLY</option>
                       </Select>
                     </div>
 
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground">NL Filter Extraction</Label>
+                    <div className="space-y-1">
+                      <Label className="text-[10.5px] text-muted-foreground">NL Filter Extraction</Label>
                       <Select
                         value={nlFilterCondition}
                         onChange={(e) => setNlFilterCondition(e.target.value as any)}
-                        className="mt-0.5 h-7 text-xs font-mono"
+                        className="h-7 text-xs font-mono"
                       >
                         <option value="DISABLED">DISABLED</option>
                         <option value="ENABLED">ENABLED</option>
@@ -1340,69 +1436,7 @@ export default function App() {
 
               </TabsContent>
 
-              {/* ========================================================= */}
-              {/* TAB 4: HEADERS                                           */}
-              {/* ========================================================= */}
-              <TabsContent value="headers" className="mt-0 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider">
-                    HTTP Request Headers
-                  </h3>
-                  <span className="text-[10px] text-muted-foreground">Automatically attached to outbound GCP API call</span>
-                </div>
 
-                <div className="border border-border rounded-md overflow-hidden bg-card text-xs">
-                  <div className="grid grid-cols-12 gap-2 px-3 py-1.5 bg-muted/50 border-b border-border font-semibold text-[11px] text-muted-foreground">
-                    <div className="col-span-5">Header Key</div>
-                    <div className="col-span-7">Header Value</div>
-                  </div>
-
-                  {/* Authorization */}
-                  <div className="grid grid-cols-12 gap-2 px-3 py-2 items-center border-b border-border/50">
-                    <div className="col-span-5 font-mono font-bold text-xs">Authorization</div>
-                    <div className="col-span-7 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 truncate">
-                      {customToken.trim() ? `Bearer ${customToken.slice(0, 10)}... (Custom Token)` : 'Bearer $(gcloud auth print-access-token)'}
-                    </div>
-                  </div>
-
-                  {/* X-Goog-User-Project */}
-                  <div className="grid grid-cols-12 gap-2 px-3 py-2 items-center border-b border-border/50">
-                    <div className="col-span-5 font-mono font-bold text-xs">X-Goog-User-Project</div>
-                    <div className="col-span-7">
-                      <Input
-                        value={quotaProject}
-                        onChange={(e) => setQuotaProject(e.target.value)}
-                        placeholder={`Defaults to: ${projectId}`}
-                        className="h-7 text-xs font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Content-Type */}
-                  <div className="grid grid-cols-12 gap-2 px-3 py-2 items-center border-b border-border/50">
-                    <div className="col-span-5 font-mono font-bold text-xs">Content-Type</div>
-                    <div className="col-span-7 font-mono text-[11px] text-muted-foreground">
-                      application/json
-                    </div>
-                  </div>
-
-                  {/* Custom Bearer Token override */}
-                  <div className="grid grid-cols-12 gap-2 px-3 py-2 items-center">
-                    <div className="col-span-5 font-mono text-xs">
-                      Custom Token Override <span className="text-[10px] text-muted-foreground">(optional)</span>
-                    </div>
-                    <div className="col-span-7">
-                      <Input
-                        type="password"
-                        value={customToken}
-                        onChange={(e) => setCustomToken(e.target.value)}
-                        placeholder="Leave empty to use local ADC"
-                        className="h-7 text-xs font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
 
 
 
@@ -1423,10 +1457,6 @@ export default function App() {
               <Badge variant="outline" className="text-[9.5px] font-mono bg-background text-foreground border-border">
                 {requestBodyMode === 'json' ? `${Object.keys(payloadJson).length} keys` : 'cURL'}
               </Badge>
-              <span className="text-emerald-500 text-[10.5px] font-mono font-medium flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live Sync
-              </span>
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -1479,18 +1509,18 @@ export default function App() {
             </div>
           </div>
 
-          {/* Code Viewer with Line Numbers */}
-          <div className="flex-1 min-h-0 flex overflow-auto bg-zinc-950 text-zinc-100 font-mono text-xs select-text">
-            {/* Line numbers column */}
-            <div className="select-none py-3 px-2 text-right text-zinc-600 bg-zinc-900/60 border-r border-zinc-800 text-[11px] leading-relaxed shrink-0 min-w-[34px]">
-              {(requestBodyMode === 'json' ? payloadString : curlCommand).split('\n').map((_, i) => (
-                <div key={i}>{i + 1}</div>
-              ))}
-            </div>
-            {/* Code Content */}
-            <pre className="flex-1 py-3 px-3 overflow-x-auto text-[11.5px] leading-relaxed font-mono whitespace-pre text-emerald-400/95 selection:bg-emerald-950 selection:text-emerald-200">
-              <code>{requestBodyMode === 'json' ? payloadString : curlCommand}</code>
-            </pre>
+          {/* Code Viewer with Line Numbers (Wrapped, no horizontal scroll) */}
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-zinc-950 text-zinc-100 font-mono text-xs select-text py-2">
+            {(requestBodyMode === 'json' ? payloadString : curlCommand).split('\n').map((line, i) => (
+              <div key={i} className="flex hover:bg-zinc-900/40 text-[11.5px] leading-relaxed">
+                <span className="select-none py-0.5 px-2.5 text-right text-zinc-600 bg-zinc-900/40 border-r border-zinc-800 shrink-0 min-w-[36px] text-[11px]">
+                  {i + 1}
+                </span>
+                <span className="py-0.5 px-3 flex-1 text-emerald-400/95 whitespace-pre-wrap break-all selection:bg-emerald-950 selection:text-emerald-200">
+                  {line || ' '}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -1539,6 +1569,28 @@ export default function App() {
 
             {/* Response Actions */}
             <div className="flex items-center gap-1.5">
+              {/* Tree vs Raw Mode Segmented Toggle */}
+              <div className="flex items-center bg-muted/40 p-0.5 rounded border border-border">
+                <button
+                  onClick={() => setResponseViewMode('tree')}
+                  className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium transition-colors ${
+                    responseViewMode === 'tree' ? 'bg-background shadow-xs text-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="VS Code 스타일 폴딩 트리 뷰"
+                >
+                  Tree
+                </button>
+                <button
+                  onClick={() => setResponseViewMode('raw')}
+                  className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium transition-colors ${
+                    responseViewMode === 'raw' ? 'bg-background shadow-xs text-foreground font-bold' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="원문 JSON 텍스트 뷰"
+                >
+                  Raw
+                </button>
+              </div>
+
               <Button
                 variant="outline"
                 size="sm"
@@ -1552,46 +1604,32 @@ export default function App() {
                 {copiedRaw ? <Check className="h-3 w-3 mr-1 text-emerald-500" /> : <Copy className="h-3 w-3 mr-1" />}
                 {copiedRaw ? 'Copied' : 'Copy'}
               </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-[11px] px-2.5"
-                onClick={() => {
-                  const blob = new Blob([rawResponseText], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `vais_search_response_${Date.now()}.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-              >
-                <Download className="h-3 w-3 mr-1" />
-                Save .json
-              </Button>
-
-              {/* Grep Filter Input */}
-              <div className="flex items-center gap-1 pl-1 border-l border-border">
-                <Filter className="h-3 w-3 text-muted-foreground" />
-                <Input
-                  value={grepFilter}
-                  onChange={(e) => setGrepFilter(e.target.value)}
-                  placeholder="Filter lines..."
-                  className="h-7 w-28 text-[11px] font-mono px-2"
-                />
-              </div>
             </div>
           </div>
 
-          {/* Raw JSON Viewer (Full-Height Dark Monospace Editor) */}
-          <div className="flex-1 min-h-0 bg-zinc-950 relative overflow-hidden">
-            <textarea
-              readOnly
-              value={displayedRawText}
-              spellCheck={false}
-              className="w-full h-full p-3 font-mono text-xs bg-zinc-950 text-emerald-400 border-0 resize-none focus:outline-none select-text leading-relaxed selection:bg-emerald-950 selection:text-emerald-200"
-            />
+          {/* Response Viewer (Tree or Raw) */}
+          <div className="flex-1 min-h-0 bg-zinc-950 relative overflow-hidden flex flex-col">
+            {responseViewMode === 'tree' && parsedResponseJson !== null ? (
+              <ErrorBoundary
+                fallback={
+                  <textarea
+                    readOnly
+                    value={rawResponseText}
+                    spellCheck={false}
+                    className="w-full h-full p-3 font-mono text-xs bg-zinc-950 text-emerald-400 border-0 resize-none focus:outline-none select-text leading-relaxed selection:bg-emerald-950 selection:text-emerald-200"
+                  />
+                }
+              >
+                <JsonTreeViewer data={parsedResponseJson} />
+              </ErrorBoundary>
+            ) : (
+              <textarea
+                readOnly
+                value={rawResponseText}
+                spellCheck={false}
+                className="w-full h-full p-3 font-mono text-xs bg-zinc-950 text-emerald-400 border-0 resize-none focus:outline-none select-text leading-relaxed selection:bg-emerald-950 selection:text-emerald-200"
+              />
+            )}
           </div>
 
         </div>
