@@ -9,10 +9,10 @@
 <body>
 
   <!-- Top Title & Global Controls -->
-  <div class="flex-between" style="border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px;">
+  <header class="header-bar">
     <div>
       <h1>VAIS / Gemini Enterprise Search API Parameter Testbed</h1>
-      <div style="font-size: 11px; font-weight: bold;">Google Cloud Discovery Engine API Debugger | Raw Request Builder & Raw Response Inspector</div>
+      <div class="sub-title">Google Cloud Discovery Engine API Debugger | Raw Request Builder & Raw Response Inspector</div>
     </div>
     <div class="row">
       <span id="statusBadge" class="badge">READY</span>
@@ -21,64 +21,63 @@
       <button id="searchBtnTop" class="btn-black" style="padding: 5px 14px;">[ SEND REQUEST (Enter) ]</button>
       <button id="burstBtnTop" style="padding: 5px 10px;">[ 5-REQ BURST ]</button>
     </div>
-  </div>
+  </header>
 
   <!-- 1. OUTGOING HTTP REQUEST INSPECTOR (ALWAYS VISIBLE) -->
-  <div class="endpoint-box">
-    <div class="flex-between" style="margin-bottom: 4px; border-bottom: 1px solid #000; padding-bottom: 3px;">
-      <b>[OUTGOING HTTP REQUEST INSPECTOR]</b>
-      <span style="font-size: 10px;">Updates live on every parameter toggle and keystroke</span>
+  <section class="inspector-panel">
+    <div class="flex-between" style="margin-bottom: 6px;">
+      <span style="font-weight: 800; font-size: 11.5px; text-transform: uppercase;">Outgoing HTTP Request Inspector</span>
+      <span style="font-size: 10.5px; color: #666;">Updates live as parameters change</span>
     </div>
-    <div style="margin-bottom: 3px;">
-      <b>METHOD:</b> <code>POST</code>
-    </div>
-    <div style="margin-bottom: 3px;">
-      <b>URL:</b> <code id="liveEndpointUrl">https://discoveryengine.googleapis.com/v1alpha/projects/agentspace-test-469511/locations/global/collections/default_collection/engines/gemini-enhanced-parser-tes_1775720801989/servingConfigs/default_search:search</code>
-    </div>
-    <div style="margin-bottom: 6px;">
-      <b>HEADERS:</b> <code id="liveHeadersUrl">Authorization: Bearer [gcloud ADC] | X-Goog-User-Project: agentspace-test-469511 | Content-Type: application/json</code>
+    <div class="inspector-meta">
+      <div><b>METHOD:</b> <code>POST</code></div>
+      <div><b>URL:</b> <code id="liveEndpointUrl">https://discoveryengine.googleapis.com/v1alpha/projects/agentspace-test-469511/locations/global/collections/default_collection/engines/gemini-enhanced-parser-tes_1775720801989/servingConfigs/default_search:search</code></div>
+      <div><b>HEADERS:</b> <code id="liveHeadersUrl">Authorization: Bearer [gcloud ADC] | X-Goog-User-Project: agentspace-test-469511 | Content-Type: application/json</code></div>
     </div>
 
     <!-- Live Request Payload vs Live cURL -->
     <div class="grid-2">
       <div>
-        <div class="flex-between" style="margin-bottom: 2px;">
-          <b>[LIVE OUTGOING REQUEST PAYLOAD (JSON)]:</b>
-          <span style="font-size: 10px; color: #555;">Exact body sent to GCP API</span>
+        <div class="flex-between" style="margin-bottom: 4px;">
+          <span style="font-weight: 700; font-size: 11px;">LIVE OUTGOING REQUEST PAYLOAD (JSON)</span>
+          <span style="font-size: 10px; color: #777;">Exact body sent to GCP API</span>
         </div>
         <textarea id="livePayloadJson" readonly spellcheck="false" class="payload-preview-textarea"></textarea>
       </div>
       <div>
-        <div class="flex-between" style="margin-bottom: 2px;">
-          <b>[REPRODUCTION cURL COMMAND]:</b>
-          <button type="button" id="copyCurlBtn">[ COPY cURL ]</button>
+        <div class="flex-between" style="margin-bottom: 4px;">
+          <span style="font-weight: 700; font-size: 11px;">REPRODUCTION cURL COMMAND</span>
+          <button type="button" id="copyCurlBtn" style="padding: 2px 6px;">[ COPY cURL ]</button>
         </div>
         <pre id="curlOutput" class="curl-preview-pre">curl command will generate here...</pre>
       </div>
     </div>
-  </div>
+  </section>
 
   <!-- 2. TARGET CONFIG & ENGINE DATASTORES -->
-  <fieldset>
-    <legend>1. Target Resource & Auto-Fetched DataStores</legend>
+  <section class="section">
+    <div class="section-title">
+      <span>01. Target Resource & Auto-Fetched DataStores</span>
+      <span class="section-subtitle">Switch project, engine, and API version dynamically</span>
+    </div>
 
-    <div class="grid-4" style="margin-bottom: 6px;">
+    <div class="grid-4" style="margin-bottom: 8px;">
       <div>
         <label><b>Project ID:</b></label><br>
         <input type="text" id="cfgProjectId" value="agentspace-test-469511" style="width: 100%;">
       </div>
       <div>
-        <label><b>API Version (Dropdown):</b></label><br>
-        <select id="cfgApiVersion" style="width: 100%; font-weight: bold;">
+        <label><b>API Version:</b></label><br>
+        <select id="cfgApiVersion" style="width: 100%; font-weight: 600;">
           <option value="v1alpha" selected>v1alpha (Full Preview & LLM Features)</option>
           <option value="v1beta">v1beta</option>
           <option value="v1">v1 (GA)</option>
         </select>
       </div>
       <div>
-        <label><b>Location (Dropdown):</b></label><br>
+        <label><b>Location:</b></label><br>
         <select id="cfgLocation" style="width: 100%;">
-          <option value="global" selected>global (Default Multi-region)</option>
+          <option value="global" selected>global (Multi-region)</option>
           <option value="us">us (United States)</option>
           <option value="eu">eu (Europe)</option>
           <option value="asia-northeast3">asia-northeast3 (Seoul)</option>
@@ -90,16 +89,16 @@
       </div>
     </div>
 
-    <div class="row" style="margin-bottom: 6px;">
-      <span><b>Target Resource Mode:</b></span>
+    <div class="row" style="margin-bottom: 8px;">
+      <span style="font-size: 11px; color: #444;">Target Mode:</span>
       <label><input type="radio" name="targetTypeRadio" value="engines" checked> <b>Search Engine</b> (engines/{id}/servingConfigs/{cfg}:search)</label>
-      <label><input type="radio" name="targetTypeRadio" value="dataStores"> <b>Direct DataStore</b> (dataStores/{id}/servingConfigs/{cfg}:search)</label>
+      <label style="margin-left: 10px;"><input type="radio" name="targetTypeRadio" value="dataStores"> <b>Direct DataStore</b> (dataStores/{id}/servingConfigs/{cfg}:search)</label>
     </div>
 
-    <div class="grid-2" style="margin-bottom: 6px;">
+    <div class="grid-2" style="margin-bottom: 8px;">
       <div>
-        <label><b>Engine ID (Input / Change triggers auto-fetch):</b></label><br>
-        <input type="text" id="cfgEngineId" value="gemini-enhanced-parser-tes_1775720801989" style="width: 100%; font-weight: bold;">
+        <label><b>Engine ID (Input triggers auto-fetch):</b></label><br>
+        <input type="text" id="cfgEngineId" value="gemini-enhanced-parser-tes_1775720801989" style="width: 100%; font-weight: 700;">
       </div>
       <div>
         <label><b>Or Select from Project Engines:</b></label><br>
@@ -112,30 +111,30 @@
       </div>
     </div>
 
-    <!-- AUTO-FETCHED DATASTORES BOX -->
-    <div id="engineDataStoresBox" style="border: 1px solid #000; padding: 6px 8px; background: #fcfcfc; margin-bottom: 6px;">
-      <div class="flex-between" style="margin-bottom: 4px; border-bottom: 1px dotted #999; padding-bottom: 4px;">
+    <!-- AUTO-FETCHED DATASTORES CONTAINER -->
+    <div class="ds-container">
+      <div class="flex-between">
         <div>
-          <b>[Attached DataStores for this Engine]</b>
-          <span id="dataStoreLoadingStatus" style="margin-left: 8px; font-size: 11px; font-weight: normal;">(Initializing...)</span>
+          <b>Attached DataStores for Engine:</b>
+          <span id="dataStoreLoadingStatus" style="margin-left: 6px; font-size: 11px; color: #444;">(Initializing...)</span>
         </div>
-        <div class="row" style="margin-bottom: 0;">
-          <button type="button" id="selectAllDsBtn">[ Select All ]</button>
-          <button type="button" id="deselectAllDsBtn">[ Deselect All ]</button>
-          <button type="button" id="refetchDataStoresBtn">[ Refetch DataStores ]</button>
+        <div class="row">
+          <button type="button" id="selectAllDsBtn" style="padding: 2px 6px;">[ Select All ]</button>
+          <button type="button" id="deselectAllDsBtn" style="padding: 2px 6px;">[ Deselect All ]</button>
+          <button type="button" id="refetchDataStoresBtn" style="padding: 2px 6px;">[ Refetch ]</button>
         </div>
       </div>
-      <div id="dataStoreCheckboxes" style="display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto; padding: 2px;">
-        <span style="color: #666;">DataStores will be listed here after Engine ID is resolved.</span>
+      <div id="dataStoreCheckboxes" class="ds-list">
+        <span style="color: #888;">DataStores will be listed here after Engine ID is resolved.</span>
       </div>
-      <div style="font-size: 10.5px; color: #555; margin-top: 4px;">
-        * Checked dataStores are serialized into <code>dataStoreSpecs</code> in the search request. If none are selected, Discovery Engine automatically searches across all attached dataStores.
+      <div style="font-size: 10.5px; color: #666; margin-top: 6px;">
+        * Checked dataStores are passed as <code>dataStoreSpecs</code> in the request body. If none are checked, all attached dataStores are searched by default.
       </div>
     </div>
 
-    <div class="grid-2">
+    <div class="grid-2" style="margin-top: 8px;">
       <div>
-        <label>Custom Bearer Token (Overrides local ADC):</label><br>
+        <label>Custom Bearer Token (Optional override for ADC):</label><br>
         <input type="password" id="cfgCustomToken" placeholder="Optional: ya29.a0..." style="width: 100%;">
       </div>
       <div>
@@ -143,21 +142,23 @@
         <input type="text" id="cfgQuotaProject" placeholder="Default: same as Project ID" style="width: 100%;">
       </div>
     </div>
-  </fieldset>
+  </section>
 
   <!-- 3. QUERY & PRESETS -->
-  <fieldset>
-    <legend>2. Query & Presets</legend>
-    <div class="row" style="margin-bottom: 6px;">
-      <input type="text" id="queryInput" value="Gemini Enterprise 아키텍처 및 보안 정책" placeholder="Enter search query..." style="flex: 1; padding: 6px; font-weight: bold; font-size: 13px;">
-      <button id="searchBtn" class="btn-black" style="padding: 6px 14px;">[ SEND REQUEST ]</button>
-      <button id="burstBtn" title="Run 5 sequential requests to measure latency & verify 300 QPM limit">[ 5-REQ BURST TEST ]</button>
-      <button id="clearQueryBtn">[ CLEAR ]</button>
+  <section class="section">
+    <div class="section-title">
+      <span>02. Search Query & Presets</span>
+    </div>
+    <div class="row" style="margin-bottom: 8px;">
+      <input type="text" id="queryInput" value="Gemini Enterprise 아키텍처 및 보안 정책" placeholder="Enter search query..." style="flex: 1; padding: 6px 10px; font-weight: 700; font-size: 13px;">
+      <button id="searchBtn" class="btn-black" style="padding: 6px 16px;">[ SEND REQUEST ]</button>
+      <button id="burstBtn" title="Run 5 sequential requests to measure latency & verify 300 QPM limit" style="padding: 6px 12px;">[ 5-REQ BURST TEST ]</button>
+      <button id="clearQueryBtn" style="padding: 6px 10px;">[ CLEAR ]</button>
     </div>
 
     <!-- POSCO / Enterprise Presets -->
-    <div class="row" style="font-size: 11px; flex-wrap: wrap;">
-      <b>Test Presets:</b>
+    <div class="row" style="flex-wrap: wrap; gap: 6px;">
+      <span style="font-weight: 700; font-size: 11px;">Presets:</span>
       <button type="button" class="preset-btn" data-preset="posco_internal">[ POSCO: Internal Only (No Web Grounding, High Relevance) ]</button>
       <button type="button" class="preset-btn" data-preset="posco_digital">[ POSCO: Digital Parser (Excel/CSV) ]</button>
       <button type="button" class="preset-btn" data-preset="summary">[ Gemini Grounded Summary ]</button>
@@ -165,207 +166,216 @@
       <button type="button" class="preset-btn" data-preset="chunks">[ Chunks Mode ]</button>
       <button type="button" class="preset-btn" data-preset="minimal">[ Minimal Raw ]</button>
     </div>
-  </fieldset>
+  </section>
 
-  <!-- 4. ALL SEARCH PROPERTIES TO TOGGLE (HIGH-DENSITY MONOCHROME 2-COL) -->
-  <div class="grid-2">
-
-    <!-- Column 1: Core Search & contentSearchSpec -->
-    <div>
-      <fieldset>
-        <legend>3A. Core Search & Filtering Properties</legend>
-        <div class="grid-3" style="margin-bottom: 6px;">
-          <div>
-            <label><input type="checkbox" id="propPageSizeEnabled" checked> pageSize:</label><br>
-            <input type="number" id="propPageSize" min="1" max="100" value="10" style="width: 100%;">
-          </div>
-          <div>
-            <label><input type="checkbox" id="propOffsetEnabled"> offset:</label><br>
-            <input type="number" id="propOffset" min="0" value="0" style="width: 100%;">
-          </div>
-          <div>
-            <label><input type="checkbox" id="propPageTokenEnabled"> pageToken:</label><br>
-            <input type="text" id="propPageToken" placeholder="page token" style="width: 100%;">
-          </div>
-        </div>
-
-        <div class="grid-2" style="margin-bottom: 6px;">
-          <div>
-            <label><input type="checkbox" id="propFilterEnabled"> filter:</label><br>
-            <input type="text" id="propFilter" placeholder='category: ANY("Security")' style="width: 100%;">
-          </div>
-          <div>
-            <label><input type="checkbox" id="propCanonicalFilterEnabled"> canonicalFilter:</label><br>
-            <input type="text" id="propCanonicalFilter" placeholder='canonical filter' style="width: 100%;">
-          </div>
-        </div>
-
-        <div class="grid-2" style="margin-bottom: 6px;">
-          <div>
-            <label><input type="checkbox" id="propOrderByEnabled"> orderBy:</label><br>
-            <input type="text" id="propOrderBy" placeholder='update_time desc' style="width: 100%;">
-          </div>
-          <div>
-            <label><input type="checkbox" id="propRelevanceThresholdEnabled"> relevanceThreshold:</label><br>
-            <select id="propRelevanceThreshold" style="width: 100%;">
-              <option value="NONE">NONE</option>
-              <option value="LOW">LOW</option>
-              <option value="MEDIUM">MEDIUM</option>
-              <option value="HIGH">HIGH (권장: 엄격한 관련성 필터링)</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="grid-2">
-          <div>
-            <label><input type="checkbox" id="propRankingExprEnabled"> rankingExpression:</label><br>
-            <input type="text" id="propRankingExpr" placeholder='ranking expression' style="width: 100%;">
-          </div>
-          <div>
-            <label><input type="checkbox" id="propUserPseudoIdEnabled"> userPseudoId:</label><br>
-            <input type="text" id="propUserPseudoId" placeholder='test-user-uuid' style="width: 100%;">
-          </div>
-        </div>
-      </fieldset>
-
-      <!-- contentSearchSpec -->
-      <fieldset>
-        <legend>3B. contentSearchSpec (Summary, QA, Snippets, Chunks)</legend>
-
-        <!-- summarySpec -->
-        <div style="border-bottom: 1px solid #000; padding-bottom: 6px; margin-bottom: 6px;">
-          <div class="row">
-            <label><b><input type="checkbox" id="summaryEnabled" checked> summarySpec.enabled</b> (Gemini Grounded Summarization)</label>
-          </div>
-          <div class="grid-3" style="margin-bottom: 4px;">
-            <div>resultCount: <input type="number" id="summaryCount" min="1" max="10" value="3" style="width: 45px;"></div>
-            <div>languageCode: <input type="text" id="summaryLang" value="ko" style="width: 50px;"></div>
-            <div><label><input type="checkbox" id="summaryCitations" checked> includeCitations</label></div>
-          </div>
-          <div class="row" style="flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
-            <label><input type="checkbox" id="summaryAdversarial" checked> ignoreAdversarialQuery</label>
-            <label><input type="checkbox" id="summaryNonSeeking" checked> ignoreNonSummarySeeking</label>
-            <label><input type="checkbox" id="summaryLowRelevant" checked> ignoreLowRelevantContent</label>
-            <label><input type="checkbox" id="summarySemanticChunks"> useSemanticChunks</label>
-          </div>
-          <div style="margin-bottom: 4px;">
-            Model Version:
-            <select id="summaryModel">
-              <option value="gemini-1.5-flash-002/default" selected>gemini-1.5-flash-002/default</option>
-              <option value="gemini-1.5-pro-002/default">gemini-1.5-pro-002/default</option>
-              <option value="preview">preview</option>
-              <option value="default">default</option>
-            </select>
-          </div>
-          <div>
-            Preamble (System Instruction):<br>
-            <input type="text" id="summaryPreamble" value="답변은 신뢰할 수 있는 사내 문서를 바탕으로 한국어로 공손하고 명확하게 요약해 주세요." style="width: 100%;">
-          </div>
-        </div>
-
-        <!-- extractiveContentSpec -->
-        <div style="border-bottom: 1px solid #000; padding-bottom: 6px; margin-bottom: 6px;">
-          <div class="row">
-            <label><b><input type="checkbox" id="extractiveEnabled" checked> extractiveContentSpec.enabled</b> (Direct Answers & Segments)</label>
-          </div>
-          <div class="grid-3" style="margin-bottom: 4px;">
-            <div>maxAnswers: <input type="number" id="extractiveAnswers" min="0" max="5" value="1" style="width: 40px;"></div>
-            <div>maxSegments: <input type="number" id="extractiveSegments" min="0" max="5" value="1" style="width: 40px;"></div>
-            <div><label><input type="checkbox" id="extractiveReturnScore" checked> returnScore</label></div>
-          </div>
-          <div class="row">
-            <span>prevSegments: <input type="number" id="extractivePrev" min="0" max="3" value="0" style="width: 40px;"></span>
-            <span>nextSegments: <input type="number" id="extractiveNext" min="0" max="3" value="0" style="width: 40px;"></span>
-          </div>
-        </div>
-
-        <!-- snippetSpec & searchResultMode -->
-        <div>
-          <div class="row" style="margin-bottom: 4px;">
-            <label><input type="checkbox" id="snippetReturn" checked> snippetSpec.returnSnippet</label>
-            <span>maxSnippets: <input type="number" id="snippetMax" min="1" max="5" value="2" style="width: 40px;"></span>
-          </div>
-          <div class="row">
-            <span>searchResultMode:</span>
-            <label><input type="radio" name="resMode" value="DOCUMENTS" checked> DOCUMENTS</label>
-            <label><input type="radio" name="resMode" value="CHUNKS"> CHUNKS</label>
-            <span>(prevChunk: <input type="number" id="chunkPrev" min="0" max="3" value="1" style="width: 35px;"> nextChunk: <input type="number" id="chunkNext" min="0" max="3" value="1" style="width: 35px;">)</span>
-          </div>
-        </div>
-      </fieldset>
+  <!-- 4. ALL SEARCH PROPERTIES TO TOGGLE (2-COLUMN CLEAN VIEW) -->
+  <section class="section">
+    <div class="section-title">
+      <span>03. Parameter Toggles & Specifications</span>
+      <span class="section-subtitle">Toggle properties on/off to include or omit from payload</span>
     </div>
 
-    <!-- Column 2: Query Understanding, Boost, Facets & Raw Params -->
-    <div>
-      <fieldset>
-        <legend>3C. Query Understanding & Corrections</legend>
-        <div class="grid-2" style="margin-bottom: 6px;">
+    <div class="grid-2">
+
+      <!-- Column 1: Core Search & contentSearchSpec -->
+      <div>
+        <!-- Core Search & Pagination -->
+        <div class="prop-group">
+          <div class="prop-group-title">Core Search & Pagination</div>
+          <div class="grid-3" style="margin-bottom: 6px;">
+            <div>
+              <label><input type="checkbox" id="propPageSizeEnabled" checked> pageSize:</label><br>
+              <input type="number" id="propPageSize" min="1" max="100" value="10" style="width: 100%;">
+            </div>
+            <div>
+              <label><input type="checkbox" id="propOffsetEnabled"> offset:</label><br>
+              <input type="number" id="propOffset" min="0" value="0" style="width: 100%;">
+            </div>
+            <div>
+              <label><input type="checkbox" id="propPageTokenEnabled"> pageToken:</label><br>
+              <input type="text" id="propPageToken" placeholder="page token" style="width: 100%;">
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-bottom: 6px;">
+            <div>
+              <label><input type="checkbox" id="propFilterEnabled"> filter:</label><br>
+              <input type="text" id="propFilter" placeholder='category: ANY("Security")' style="width: 100%;">
+            </div>
+            <div>
+              <label><input type="checkbox" id="propCanonicalFilterEnabled"> canonicalFilter:</label><br>
+              <input type="text" id="propCanonicalFilter" placeholder='canonical filter' style="width: 100%;">
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-bottom: 6px;">
+            <div>
+              <label><input type="checkbox" id="propOrderByEnabled"> orderBy:</label><br>
+              <input type="text" id="propOrderBy" placeholder='update_time desc' style="width: 100%;">
+            </div>
+            <div>
+              <label><input type="checkbox" id="propRelevanceThresholdEnabled"> relevanceThreshold:</label><br>
+              <select id="propRelevanceThreshold" style="width: 100%;">
+                <option value="NONE">NONE</option>
+                <option value="LOW">LOW</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="HIGH">HIGH (엄격한 관련성 필터링)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <label><input type="checkbox" id="propRankingExprEnabled"> rankingExpression:</label><br>
+              <input type="text" id="propRankingExpr" placeholder='ranking expression' style="width: 100%;">
+            </div>
+            <div>
+              <label><input type="checkbox" id="propUserPseudoIdEnabled"> userPseudoId:</label><br>
+              <input type="text" id="propUserPseudoId" placeholder='test-user-uuid' style="width: 100%;">
+            </div>
+          </div>
+        </div>
+
+        <!-- contentSearchSpec -->
+        <div class="prop-group">
+          <div class="prop-group-title">contentSearchSpec (Summary, Extractive QA, Snippets, Mode)</div>
+
+          <!-- summarySpec -->
+          <div style="margin-bottom: 8px;">
+            <div class="row" style="margin-bottom: 4px;">
+              <label><b><input type="checkbox" id="summaryEnabled" checked> summarySpec.enabled</b> (Grounded Summarization)</label>
+            </div>
+            <div class="grid-3" style="margin-bottom: 4px;">
+              <div>resultCount: <input type="number" id="summaryCount" min="1" max="10" value="3" style="width: 45px;"></div>
+              <div>langCode: <input type="text" id="summaryLang" value="ko" style="width: 45px;"></div>
+              <div><label><input type="checkbox" id="summaryCitations" checked> citations</label></div>
+            </div>
+            <div class="row" style="flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
+              <label><input type="checkbox" id="summaryAdversarial" checked> ignoreAdversarial</label>
+              <label><input type="checkbox" id="summaryNonSeeking" checked> ignoreNonSummarySeeking</label>
+              <label><input type="checkbox" id="summaryLowRelevant" checked> ignoreLowRelevant</label>
+              <label><input type="checkbox" id="summarySemanticChunks"> useSemanticChunks</label>
+            </div>
+            <div style="margin-bottom: 4px;">
+              Model:
+              <select id="summaryModel">
+                <option value="gemini-1.5-flash-002/default" selected>gemini-1.5-flash-002/default</option>
+                <option value="gemini-1.5-pro-002/default">gemini-1.5-pro-002/default</option>
+                <option value="preview">preview</option>
+                <option value="default">default</option>
+              </select>
+            </div>
+            <div>
+              Preamble (System Instruction):<br>
+              <input type="text" id="summaryPreamble" value="답변은 신뢰할 수 있는 사내 문서를 바탕으로 한국어로 공손하고 명확하게 요약해 주세요." style="width: 100%;">
+            </div>
+          </div>
+
+          <!-- extractiveContentSpec -->
+          <div style="margin-bottom: 8px;">
+            <div class="row" style="margin-bottom: 4px;">
+              <label><b><input type="checkbox" id="extractiveEnabled" checked> extractiveContentSpec.enabled</b> (Direct QA Answers)</label>
+            </div>
+            <div class="grid-3" style="margin-bottom: 4px;">
+              <div>maxAnswers: <input type="number" id="extractiveAnswers" min="0" max="5" value="1" style="width: 40px;"></div>
+              <div>maxSegments: <input type="number" id="extractiveSegments" min="0" max="5" value="1" style="width: 40px;"></div>
+              <div><label><input type="checkbox" id="extractiveReturnScore" checked> returnScore</label></div>
+            </div>
+            <div class="row">
+              <span>prevSegments: <input type="number" id="extractivePrev" min="0" max="3" value="0" style="width: 40px;"></span>
+              <span>nextSegments: <input type="number" id="extractiveNext" min="0" max="3" value="0" style="width: 40px;"></span>
+            </div>
+          </div>
+
+          <!-- snippetSpec & searchResultMode -->
           <div>
-            <label><input type="checkbox" id="qeEnabled" checked> queryExpansionSpec:</label><br>
-            <select id="qeCondition" style="width: 100%;">
-              <option value="AUTO" selected>AUTO</option>
-              <option value="DISABLED">DISABLED</option>
+            <div class="row" style="margin-bottom: 4px;">
+              <label><input type="checkbox" id="snippetReturn" checked> snippetSpec.returnSnippet</label>
+              <span>maxSnippets: <input type="number" id="snippetMax" min="1" max="5" value="2" style="width: 40px;"></span>
+            </div>
+            <div class="row">
+              <span>searchResultMode:</span>
+              <label><input type="radio" name="resMode" value="DOCUMENTS" checked> DOCUMENTS</label>
+              <label><input type="radio" name="resMode" value="CHUNKS"> CHUNKS</label>
+              <span>(prev: <input type="number" id="chunkPrev" min="0" max="3" value="1" style="width: 35px;"> next: <input type="number" id="chunkNext" min="0" max="3" value="1" style="width: 35px;">)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column 2: Query Understanding, Boost, Facets & Raw Params -->
+      <div>
+        <div class="prop-group">
+          <div class="prop-group-title">Query Understanding & Corrections</div>
+          <div class="grid-2" style="margin-bottom: 6px;">
+            <div>
+              <label><input type="checkbox" id="qeEnabled" checked> queryExpansionSpec:</label><br>
+              <select id="qeCondition" style="width: 100%;">
+                <option value="AUTO" selected>AUTO</option>
+                <option value="DISABLED">DISABLED</option>
+              </select>
+            </div>
+            <div>
+              <label><input type="checkbox" id="spellEnabled" checked> spellCorrectionSpec:</label><br>
+              <select id="spellMode" style="width: 100%;">
+                <option value="AUTO" selected>AUTO</option>
+                <option value="SUGGESTION_ONLY">SUGGESTION_ONLY</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="qePin"> pinUnexpandedResults</label>
+            <span style="margin-left: 12px;">NL Filter Extraction:</span>
+            <select id="nlFilterCondition">
+              <option value="DISABLED" selected>DISABLED</option>
+              <option value="ENABLED">ENABLED</option>
             </select>
           </div>
+        </div>
+
+        <div class="prop-group">
+          <div class="prop-group-title">boostSpec & facetSpecs</div>
+          <div style="margin-bottom: 6px;">
+            <div class="flex-between" style="margin-bottom: 4px;">
+              <label><b>boostSpec (Condition Boosts):</b></label>
+              <button type="button" id="addBoostBtn" style="padding: 2px 6px;">[ + Add Boost Rule ]</button>
+            </div>
+            <div id="boostList"></div>
+          </div>
           <div>
-            <label><input type="checkbox" id="spellEnabled" checked> spellCorrectionSpec:</label><br>
-            <select id="spellMode" style="width: 100%;">
-              <option value="AUTO" selected>AUTO</option>
-              <option value="SUGGESTION_ONLY">SUGGESTION_ONLY</option>
-            </select>
+            <label><b>facetSpecs (Comma-separated keys):</b></label><br>
+            <input type="text" id="propFacets" value="category, author" style="width: 100%;">
           </div>
         </div>
-        <div class="row">
-          <label><input type="checkbox" id="qePin"> pinUnexpandedResults</label>
-          <span style="margin-left: 12px;">NL Filter Extraction:</span>
-          <select id="nlFilterCondition">
-            <option value="DISABLED" selected>DISABLED</option>
-            <option value="ENABLED">ENABLED</option>
-          </select>
-        </div>
-      </fieldset>
 
-      <fieldset>
-        <legend>3D. boostSpec & facetSpecs</legend>
-        <div style="margin-bottom: 6px;">
-          <div class="flex-between">
-            <label><b>boostSpec (Condition Boosts):</b></label>
-            <button type="button" id="addBoostBtn">[ + Add Boost Rule ]</button>
-          </div>
-          <div id="boostList" style="margin-top: 4px;"></div>
+        <div class="prop-group">
+          <div class="prop-group-title">Custom Raw JSON Parameters (Arbitrary Injection)</div>
+          <div style="font-size: 10.5px; color: #666; margin-bottom: 3px;">Merged directly into root request payload for experimental/preview GCP flags:</div>
+          <textarea id="customJsonParams" style="width: 100%; height: 60px; font-family: inherit; font-size: 11px; border: 1px solid #ccc; padding: 5px; border-radius: 2px;" placeholder='{ "userInfo": { "userId": "test-user" } }'></textarea>
         </div>
-        <div>
-          <label><b>facetSpecs (Comma-separated keys):</b></label><br>
-          <input type="text" id="propFacets" value="category, author" style="width: 100%;">
-        </div>
-      </fieldset>
+      </div>
 
-      <fieldset>
-        <legend>3E. Custom Raw JSON Parameters (Arbitrary Injection)</legend>
-        <div style="font-size: 10.5px; color: #444; margin-bottom: 2px;">Merged directly into root request payload for experimental/preview GCP flags:</div>
-        <textarea id="customJsonParams" style="width: 100%; height: 50px; font-family: inherit; font-size: 11px;" placeholder='{ "userInfo": { "userId": "test-user" } }'></textarea>
-      </fieldset>
     </div>
+  </section>
 
-  </div>
-
-  <!-- 5. RAW DATA RESPONSE (JSON ONLY) - NO FRONTEND FLUFF -->
-  <fieldset style="margin-top: 10px;">
-    <legend>4. RAW DATA RESPONSE (JSON ONLY)</legend>
-    <div class="flex-between" style="margin-bottom: 6px;">
+  <!-- 5. RAW DATA RESPONSE (JSON ONLY) -->
+  <section style="margin-top: 14px;">
+    <div class="flex-between" style="margin-bottom: 8px;">
       <div class="row">
-        <button id="copyRawJsonBtn" class="btn-black">[ COPY RAW JSON ]</button>
-        <button id="downloadRawJsonBtn">[ DOWNLOAD .JSON FILE ]</button>
+        <span style="font-weight: 800; font-size: 12px; text-transform: uppercase;">04. Raw Data Response (JSON)</span>
         <span id="rawStatusBadge" class="badge">HTTP 200</span>
         <span id="rawLatencyBadge" class="badge">0 ms</span>
         <span id="rawSizeLabel" class="badge">0 KB</span>
       </div>
-      <div>
-        <b>Filter grep:</b> <input type="text" id="rawFilterInput" placeholder="filter lines..." style="width: 140px;">
+      <div class="row">
+        <button id="copyRawJsonBtn" class="btn-black">[ COPY RAW JSON ]</button>
+        <button id="downloadRawJsonBtn">[ DOWNLOAD .JSON FILE ]</button>
+        <span style="font-size: 11px; color: #444; margin-left: 8px;">Grep:</span>
+        <input type="text" id="rawFilterInput" placeholder="filter lines..." style="width: 130px;">
       </div>
     </div>
     <textarea id="rawJsonOutput" class="raw-textarea" readonly spellcheck="false">{ "status": "Ready. Execute search to inspect raw response." }</textarea>
-  </fieldset>
+  </section>
 
   <script type="module" src="/static/app.js"></script>
 </body>
