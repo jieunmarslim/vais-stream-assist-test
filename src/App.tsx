@@ -41,11 +41,18 @@ export default function App() {
   // Active Tab
   const [activeTab, setActiveTab] = useState('params');
 
-  // DataStores state
-  const [dataStores, setDataStores] = useState<IDataStoreItem[]>([]);
+  // DataStores state: Load ALL DataStores in project + track which are attached to active engine
+  const [allProjectDataStores, setAllProjectDataStores] = useState<IDataStoreItem[]>([]);
+  const [engineAttachedDsIds, setEngineAttachedDsIds] = useState<Set<string>>(new Set());
   const [selectedDsIds, setSelectedDsIds] = useState<Set<string>>(new Set());
   const [dsLoading, setDsLoading] = useState(false);
   const [dsStatusMsg, setDsStatusMsg] = useState('');
+  const [dsFilterMode, setDsFilterMode] = useState<'all' | 'attached' | 'selected'>('all');
+  const [dsSearchQuery, setDsSearchQuery] = useState('');
+
+  // Request Body Middle Column View Mode & Copy State
+  const [requestBodyMode, setRequestBodyMode] = useState<'json' | 'curl'>('json');
+  const [copiedPayload, setCopiedPayload] = useState(false);
 
   // Query & Properties State
   const [query, setQuery] = useState('Gemini Enterprise');
@@ -124,35 +131,61 @@ export default function App() {
 
   const [enginesLoading, setEnginesLoading] = useState(false);
 
-  // Fetch DataStores for Engine
-  const fetchDataStores = useCallback(async (targetEngine: string, targetApiVer = apiVersion) => {
-    if (!targetEngine || !projectId) return;
+  // Fetch All DataStores in Project & identify attached DataStores for active engine
+  const fetchAllDataStores = useCallback(async (targetEngine: string, targetApiVer = apiVersion) => {
+    if (!projectId) return;
     setDsLoading(true);
-    setDsStatusMsg('(Fetching DataStores from GCP...)');
+    setDsStatusMsg('Loading DataStores from Google Cloud Discovery Engine...');
     try {
-      const params = new URLSearchParams({
+      // 1. Fetch all DataStores in the GCP Project
+      const dsParams = new URLSearchParams({
         project_id: projectId,
-        engine_id: targetEngine,
         location,
+        resource_type: 'dataStores',
         api_version: targetApiVer
       });
-      if (customToken) params.set('custom_token', customToken);
-      if (quotaProject) params.set('quota_project', quotaProject);
+      if (customToken) dsParams.set('custom_token', customToken);
+      if (quotaProject) dsParams.set('quota_project', quotaProject);
 
-      const res = await fetch(`/api/engine-datastores?${params.toString()}`);
-      const data = await res.json();
-      if (res.ok && data.status === 'ok') {
-        const list: IDataStoreItem[] = data.dataStores || [];
-        setDataStores(list);
-        setSelectedDsIds(new Set(list.map(ds => ds.id)));
-        setDsStatusMsg(`(${list.length} DataStore(s) attached to '${data.displayName || targetEngine}')`);
+      const dsRes = await fetch(`/api/list-resources?${dsParams.toString()}`);
+      const dsData = await dsRes.json();
+      const allList: IDataStoreItem[] = (dsData.items || []).map((item: any) => ({
+        id: item.id,
+        displayName: item.displayName || item.id,
+        fullPath: `projects/${projectId}/locations/${location}/collections/default_collection/dataStores/${item.id}`,
+        parserType: item.parserType || 'UNSPECIFIED'
+      }));
+      setAllProjectDataStores(allList);
+
+      // 2. Fetch the engine's attached DataStores
+      if (targetEngine) {
+        const engParams = new URLSearchParams({
+          project_id: projectId,
+          engine_id: targetEngine,
+          location,
+          api_version: targetApiVer
+        });
+        if (customToken) engParams.set('custom_token', customToken);
+        if (quotaProject) engParams.set('quota_project', quotaProject);
+
+        const engRes = await fetch(`/api/engine-datastores?${engParams.toString()}`);
+        const engData = await engRes.json();
+        if (engRes.ok && engData.status === 'ok') {
+          const attachedList: IDataStoreItem[] = engData.dataStores || [];
+          const attachedIds = new Set(attachedList.map(d => d.id));
+          setEngineAttachedDsIds(attachedIds);
+          // Default selection targets attached DataStores
+          setSelectedDsIds(new Set(attachedIds));
+          setDsStatusMsg(`(${attachedIds.size} attached to '${engData.displayName || targetEngine}' / ${allList.length} total in project)`);
+        } else {
+          setEngineAttachedDsIds(new Set());
+          setDsStatusMsg(`(${allList.length} project DataStores loaded)`);
+        }
       } else {
-        setDataStores([]);
-        setSelectedDsIds(new Set());
-        setDsStatusMsg(`(Lookup error: ${data.message || 'Engine not found'})`);
+        setEngineAttachedDsIds(new Set());
+        setDsStatusMsg(`(${allList.length} project DataStores loaded)`);
       }
     } catch (err: any) {
-      setDataStores([]);
       setDsStatusMsg(`(Error: ${err.message})`);
     } finally {
       setDsLoading(false);
@@ -181,20 +214,22 @@ export default function App() {
         }));
         setDiscoveredEngines(list);
 
-        // If current engineId is empty or not in discovered list, pick first
-        setEngineId(prev => {
-          const match = list.find(e => e.id === prev);
-          const chosen = match ? prev : list[0].id;
-          fetchDataStores(chosen, targetApiVer);
-          return chosen;
-        });
+        const match = list.find(e => e.id === engineId);
+        const chosen = match ? engineId : list[0].id;
+        if (chosen !== engineId) {
+          setEngineId(chosen);
+        }
+        fetchAllDataStores(chosen, targetApiVer);
+      } else {
+        fetchAllDataStores(engineId, targetApiVer);
       }
     } catch (err: any) {
       console.error('Failed to fetch engines:', err);
+      fetchAllDataStores(engineId, targetApiVer);
     } finally {
       setEnginesLoading(false);
     }
-  }, [projectId, location, apiVersion, customToken, quotaProject, fetchDataStores]);
+  }, [projectId, location, apiVersion, customToken, quotaProject, engineId, fetchAllDataStores]);
 
   // Initial load: automatically discover engines from GCP!
   useEffect(() => {
@@ -203,15 +238,32 @@ export default function App() {
 
   const handleEngineChange = (newEngine: string) => {
     setEngineId(newEngine);
-    fetchDataStores(newEngine);
+    fetchAllDataStores(newEngine);
   };
 
   const handleApiVersionChange = (newVer: string) => {
     setApiVersion(newVer);
     if (engineId) {
-      fetchDataStores(engineId, newVer);
+      fetchAllDataStores(engineId, newVer);
     }
   };
+
+  // Filtered DataStores list based on tab and search query
+  const filteredDataStores = useMemo(() => {
+    return allProjectDataStores.filter(ds => {
+      if (dsFilterMode === 'attached' && !engineAttachedDsIds.has(ds.id)) return false;
+      if (dsFilterMode === 'selected' && !selectedDsIds.has(ds.id)) return false;
+      if (dsSearchQuery.trim()) {
+        const q = dsSearchQuery.trim().toLowerCase();
+        const matchesId = ds.id.toLowerCase().includes(q);
+        const matchesName = (ds.displayName || '').toLowerCase().includes(q);
+        const matchesParser = (ds.parserType || '').toLowerCase().includes(q);
+        return matchesId || matchesName || matchesParser;
+      }
+      return true;
+    });
+  }, [allProjectDataStores, engineAttachedDsIds, selectedDsIds, dsFilterMode, dsSearchQuery]);
+
 
   // Real-time Endpoint URL
   const endpointUrl = useMemo(() => {
@@ -625,56 +677,51 @@ export default function App() {
         </div>
       </div>
 
-      {/* 3. MAIN SPLIT 50:50 WORKSPACE: LEFT (REQUEST) | RIGHT (RESPONSE) */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border min-h-0 overflow-hidden">
+      {/* 3. MAIN 3-COLUMN WORKSPACE: LEFT (CONTROLS) | MIDDLE (LIVE REQUEST BODY) | RIGHT (RESPONSE) */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-border min-h-0 overflow-hidden">
         
         {/* ========================================================================= */}
-        {/* LEFT WORKSPACE: POSTMAN REQUEST BUILDER & TOGGLES                         */}
+        {/* COLUMN 1 (LEFT): POSTMAN REQUEST BUILDER & TOGGLES                        */}
         {/* ========================================================================= */}
         <div className="flex flex-col h-full min-h-0 bg-background overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
             
             {/* Request Navigation Tabs */}
             <div className="px-4 border-b border-border bg-muted/10 shrink-0">
-              <TabsList className="w-full justify-start border-b-0 h-10 gap-6">
-                <TabsTrigger value="params" className="flex items-center gap-2 text-xs py-2 px-3">
+              <TabsList className="w-full justify-start border-b-0 h-10 gap-5">
+                <TabsTrigger value="params" className="flex items-center gap-1.5 text-xs py-2 px-2.5">
                   <Sliders className="h-3.5 w-3.5" />
                   <span>Params</span>
-                  <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1.5 font-mono">
+                  <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1 font-mono">
                     {pageSizeEnabled ? 1 : 0}
                   </Badge>
                 </TabsTrigger>
 
-                <TabsTrigger value="datastores" className="flex items-center gap-2 text-xs py-2 px-3">
+                <TabsTrigger value="datastores" className="flex items-center gap-1.5 text-xs py-2 px-2.5">
                   <Database className="h-3.5 w-3.5" />
                   <span>DataStores</span>
                   <Badge 
                     variant={selectedDsIds.size > 0 ? "default" : "outline"} 
-                    className="ml-1 text-[9px] h-4 px-1.5 font-mono"
+                    className="ml-1 text-[9px] h-4 px-1 font-mono"
                   >
-                    {selectedDsIds.size}/{dataStores.length}
+                    {selectedDsIds.size}/{allProjectDataStores.length}
                   </Badge>
                 </TabsTrigger>
 
-                <TabsTrigger value="specs" className="flex items-center gap-2 text-xs py-2 px-3">
+                <TabsTrigger value="specs" className="flex items-center gap-1.5 text-xs py-2 px-2.5">
                   <Sparkles className="h-3.5 w-3.5" />
-                  <span>Specs & Body</span>
+                  <span>Specs</span>
                 </TabsTrigger>
 
-                <TabsTrigger value="headers" className="flex items-center gap-2 text-xs py-2 px-3">
+                <TabsTrigger value="headers" className="flex items-center gap-1.5 text-xs py-2 px-2.5">
                   <Key className="h-3.5 w-3.5" />
                   <span>Headers</span>
-                  <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1.5 font-mono">3</Badge>
+                  <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1 font-mono">3</Badge>
                 </TabsTrigger>
 
-                <TabsTrigger value="target" className="flex items-center gap-2 text-xs py-2 px-3">
+                <TabsTrigger value="target" className="flex items-center gap-1.5 text-xs py-2 px-2.5">
                   <Settings className="h-3.5 w-3.5" />
-                  <span>Target Config</span>
-                </TabsTrigger>
-
-                <TabsTrigger value="curl" className="flex items-center gap-2 text-xs py-2 px-3">
-                  <FileCode className="h-3.5 w-3.5" />
-                  <span>cURL / Outgoing</span>
+                  <span>Target</span>
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -885,66 +932,146 @@ export default function App() {
               </TabsContent>
 
               {/* ========================================================= */}
+              {/* ========================================================= */}
               {/* TAB 2: DATASTORES                                        */}
               {/* ========================================================= */}
-              <TabsContent value="datastores" className="mt-0 space-y-3">
+              <TabsContent value="datastores" className="mt-0 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider">
-                      Attached Engine DataStores
+                      Target DataStores
                     </h3>
-                    <p className="text-[11px] text-muted-foreground">
-                      Auto-resolved from engine '{engineId}'. Checked DataStores populate dataStoreSpecs.
+                    <p className="text-[10.5px] text-muted-foreground">
+                      Targeted stores populate <code className="font-mono text-emerald-500 font-semibold">dataStoreSpecs</code> in real-time request body ({selectedDsIds.size} selected).
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedDsIds(new Set(dataStores.map(d => d.id)))}
-                      className="h-6 text-[11px] px-2"
-                    >
-                      <CheckSquare className="h-3 w-3 mr-1" /> All
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedDsIds(new Set())}
-                      className="h-6 text-[11px] px-2"
-                    >
-                      <Square className="h-3 w-3 mr-1" /> None
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fetchDataStores(engineId)}
-                      disabled={dsLoading}
-                      className="h-6 text-[11px] px-2"
-                    >
-                      <RefreshCw className={`h-3 w-3 mr-1 ${dsLoading ? 'animate-spin' : ''}`} /> Refresh
-                    </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchAllDataStores(engineId)}
+                    disabled={dsLoading}
+                    className="h-6 text-[10.5px] px-2"
+                  >
+                    <RefreshCw className={`h-3 w-3 mr-1 ${dsLoading ? 'animate-spin' : ''}`} /> Refresh
+                  </Button>
+                </div>
+
+                {/* Filter Scope Pills & Quick Selection */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Filter scope buttons */}
+                    <div className="flex items-center bg-muted/40 p-0.5 rounded border border-border text-[10.5px]">
+                      <button
+                        onClick={() => setDsFilterMode('all')}
+                        className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                          dsFilterMode === 'all'
+                            ? 'bg-background shadow-xs text-foreground font-bold'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        All ({allProjectDataStores.length})
+                      </button>
+                      <button
+                        onClick={() => setDsFilterMode('attached')}
+                        className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                          dsFilterMode === 'attached'
+                            ? 'bg-background shadow-xs text-foreground font-bold'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Attached ({engineAttachedDsIds.size})
+                      </button>
+                      <button
+                        onClick={() => setDsFilterMode('selected')}
+                        className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                          dsFilterMode === 'selected'
+                            ? 'bg-background shadow-xs text-foreground font-bold'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Selected ({selectedDsIds.size})
+                      </button>
+                    </div>
+
+                    {/* Quick Selection Buttons */}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const next = new Set(selectedDsIds);
+                          filteredDataStores.forEach(d => next.add(d.id));
+                          setSelectedDsIds(next);
+                        }}
+                        className="h-6 text-[10.5px] px-1.5"
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (dsFilterMode === 'all') {
+                            setSelectedDsIds(new Set());
+                          } else {
+                            const next = new Set(selectedDsIds);
+                            filteredDataStores.forEach(d => next.delete(d.id));
+                            setSelectedDsIds(next);
+                          }
+                        }}
+                        className="h-6 text-[10.5px] px-1.5"
+                      >
+                        Clear
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedDsIds(new Set(engineAttachedDsIds))}
+                        className="h-6 text-[10.5px] px-1.5 text-blue-500 font-medium"
+                        title="Select only the DataStores attached to the current engine"
+                      >
+                        Attached Only
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Search input */}
+                  <div className="relative">
+                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <Input
+                      value={dsSearchQuery}
+                      onChange={(e) => setDsSearchQuery(e.target.value)}
+                      placeholder={`Search ${allProjectDataStores.length} DataStores by ID, name, or parser...`}
+                      className="h-7 pl-8 text-xs font-mono bg-background"
+                    />
                   </div>
                 </div>
 
-                <div className="text-[11px] font-mono text-muted-foreground">
-                  Status: {dsStatusMsg || (dsLoading ? 'Loading...' : 'Ready')}
+                <div className="text-[10.5px] font-mono text-muted-foreground flex items-center justify-between">
+                  <span>Status: {dsStatusMsg || (dsLoading ? 'Loading...' : 'Ready')}</span>
+                  <span>Showing {filteredDataStores.length} of {allProjectDataStores.length}</span>
                 </div>
 
-                <div className="border border-border rounded-md overflow-hidden divide-y divide-border bg-card">
-                  {dataStores.length === 0 ? (
+                {/* DataStores List */}
+                <div className="border border-border rounded-md overflow-hidden divide-y divide-border bg-card max-h-[500px] overflow-y-auto">
+                  {filteredDataStores.length === 0 ? (
                     <div className="p-4 text-center text-xs text-muted-foreground">
-                      {dsLoading ? 'Fetching DataStores from Google Cloud...' : 'No DataStores attached or found for this engine.'}
+                      {dsLoading ? 'Fetching DataStores from Google Cloud...' : 'No matching DataStores found.'}
                     </div>
                   ) : (
-                    dataStores.map((ds) => {
+                    filteredDataStores.map((ds) => {
                       const isChecked = selectedDsIds.has(ds.id);
+                      const isAttached = engineAttachedDsIds.has(ds.id);
                       const isDigital = ds.parserType === 'DIGITAL';
                       const isLayout = ds.parserType === 'LAYOUT';
+                      const isOcr = ds.parserType === 'OCR';
 
                       return (
                         <div
                           key={ds.id}
-                          className="flex items-center justify-between p-2.5 hover:bg-muted/10 transition-colors"
+                          className={`flex items-center justify-between p-2 hover:bg-muted/10 transition-colors ${
+                            isChecked ? 'bg-muted/5' : ''
+                          }`}
                         >
                           <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
                             <Checkbox
@@ -960,39 +1087,36 @@ export default function App() {
                               <span className="font-mono font-bold text-xs truncate text-foreground">
                                 {ds.id}
                               </span>
-                              <span className="text-[11px] text-muted-foreground truncate">
+                              <span className="text-[10.5px] text-muted-foreground truncate">
                                 {ds.displayName || ds.id}
                               </span>
                             </div>
                           </label>
 
-                          <div className="flex items-center gap-2 ml-2 shrink-0">
+                          <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                            {isAttached && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] font-mono font-bold bg-blue-500/10 text-blue-500 border-blue-400/40"
+                              >
+                                ATTACHED
+                              </Badge>
+                            )}
                             <Badge
                               variant={isDigital ? 'default' : (isLayout ? 'secondary' : 'outline')}
-                              className={`text-[9.5px] font-mono ${
+                              className={`text-[9px] font-mono ${
                                 isDigital 
                                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
-                                  : (isLayout ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : '')
+                                  : (isLayout ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : (isOcr ? 'bg-purple-600 text-white' : ''))
                               }`}
                             >
-                              {isDigital ? 'DIGITAL PARSER' : (isLayout ? 'LAYOUT PARSER' : ds.parserType)}
+                              {isDigital ? 'DIGITAL' : (isLayout ? 'LAYOUT' : (isOcr ? 'OCR' : ds.parserType))}
                             </Badge>
                           </div>
                         </div>
                       );
                     })
                   )}
-                </div>
-
-                {/* Info Tip */}
-                <div className="p-2.5 bg-muted/30 rounded border border-border text-[11px] text-muted-foreground space-y-1">
-                  <div className="font-bold text-foreground flex items-center gap-1">
-                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-                    POSCO Excel / CSV Validation Tip:
-                  </div>
-                  <div>
-                    Toggle between DataStores with <b>DIGITAL PARSER</b> and <b>LAYOUT PARSER</b> to compare raw table structure extraction, answer extraction latency, and chunk accuracy.
-                  </div>
                 </div>
               </TabsContent>
 
@@ -1504,65 +1628,105 @@ export default function App() {
                 </div>
               </TabsContent>
 
-              {/* ========================================================= */}
-              {/* TAB 6: cURL & OUTGOING PAYLOAD                           */}
-              {/* ========================================================= */}
-              <TabsContent value="curl" className="mt-0 space-y-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Outgoing Request Payload (JSON)
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-6 text-[10.5px] px-2"
-                      onClick={() => {
-                        navigator.clipboard.writeText(payloadString);
-                      }}
-                    >
-                      <Copy className="h-3 w-3 mr-1" /> Copy Body
-                    </Button>
-                  </div>
-                  <textarea
-                    readOnly
-                    value={payloadString}
-                    spellCheck={false}
-                    className="w-full h-44 p-2.5 text-xs font-mono bg-zinc-950 text-emerald-400 rounded border border-zinc-800 resize-y shadow-inner select-all"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Reproducible cURL Command
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-6 text-[10.5px] px-2"
-                      onClick={() => {
-                        navigator.clipboard.writeText(curlCommand);
-                        setCopiedCurl(true);
-                        setTimeout(() => setCopiedCurl(false), 1500);
-                      }}
-                    >
-                      {copiedCurl ? <Check className="h-3 w-3 mr-1 text-emerald-500" /> : <Copy className="h-3 w-3 mr-1" />}
-                      {copiedCurl ? 'Copied' : 'Copy cURL'}
-                    </Button>
-                  </div>
-                  <pre className="w-full h-36 p-2.5 text-xs font-mono bg-muted text-foreground rounded border border-border overflow-auto whitespace-pre-wrap break-all select-all">
-                    {curlCommand}
-                  </pre>
-                </div>
-              </TabsContent>
-
             </div>
           </Tabs>
         </div>
 
         {/* ========================================================================= */}
-        {/* RIGHT WORKSPACE: POSTMAN RESPONSE VIEWER (RAW DATA ONLY)                  */}
+        {/* COLUMN 2 (MIDDLE): REAL-TIME REQUEST BODY (JSON / cURL)                   */}
+        {/* ========================================================================= */}
+        <div className="flex flex-col h-full min-h-0 bg-card/20 overflow-hidden border-t lg:border-t-0">
+          {/* Header */}
+          <div className="h-10 px-3 border-b border-border bg-muted/10 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-bold text-xs uppercase tracking-wider text-foreground">
+                Request Body
+              </span>
+              <Badge variant="outline" className="text-[9.5px] font-mono bg-background text-foreground border-border">
+                POST / JSON
+              </Badge>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center bg-muted/50 rounded p-0.5 border border-border text-[10.5px]">
+                <button
+                  onClick={() => setRequestBodyMode('json')}
+                  className={`px-2 py-0.5 rounded font-mono transition-colors ${
+                    requestBodyMode === 'json'
+                      ? 'bg-background shadow-xs text-foreground font-bold'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  JSON Body
+                </button>
+                <button
+                  onClick={() => setRequestBodyMode('curl')}
+                  className={`px-2 py-0.5 rounded font-mono transition-colors ${
+                    requestBodyMode === 'curl'
+                      ? 'bg-background shadow-xs text-foreground font-bold'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  cURL
+                </button>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] px-2"
+                onClick={() => {
+                  if (requestBodyMode === 'json') {
+                    navigator.clipboard.writeText(payloadString);
+                    setCopiedPayload(true);
+                    setTimeout(() => setCopiedPayload(false), 1500);
+                  } else {
+                    navigator.clipboard.writeText(curlCommand);
+                    setCopiedCurl(true);
+                    setTimeout(() => setCopiedCurl(false), 1500);
+                  }
+                }}
+              >
+                {(requestBodyMode === 'json' ? copiedPayload : copiedCurl) ? (
+                  <Check className="h-3 w-3 text-emerald-500 mr-1" />
+                ) : (
+                  <Copy className="h-3 w-3 mr-1" />
+                )}
+                <span>{(requestBodyMode === 'json' ? copiedPayload : copiedCurl) ? 'Copied' : 'Copy'}</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Sub-bar: Status and stats */}
+          <div className="px-3 py-1 bg-muted/5 border-b border-border/60 flex items-center justify-between text-[10.5px] font-mono text-muted-foreground shrink-0">
+            <span>
+              {requestBodyMode === 'json'
+                ? `${Object.keys(payloadJson).length} root keys • ${new Blob([payloadString]).size} bytes`
+                : 'Executable gcloud cURL command'}
+            </span>
+            <span className="text-emerald-500 font-semibold flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Sync
+            </span>
+          </div>
+
+          {/* Code Viewer with Line Numbers */}
+          <div className="flex-1 min-h-0 flex overflow-auto bg-zinc-950 text-zinc-100 font-mono text-xs select-text">
+            {/* Line numbers column */}
+            <div className="select-none py-3 px-2 text-right text-zinc-600 bg-zinc-900/60 border-r border-zinc-800 text-[11px] leading-relaxed shrink-0 min-w-[34px]">
+              {(requestBodyMode === 'json' ? payloadString : curlCommand).split('\n').map((_, i) => (
+                <div key={i}>{i + 1}</div>
+              ))}
+            </div>
+            {/* Code Content */}
+            <pre className="flex-1 py-3 px-3 overflow-x-auto text-[11.5px] leading-relaxed font-mono whitespace-pre text-emerald-400/95 selection:bg-emerald-950 selection:text-emerald-200">
+              <code>{requestBodyMode === 'json' ? payloadString : curlCommand}</code>
+            </pre>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* COLUMN 3 (RIGHT): POSTMAN RESPONSE VIEWER (RAW DATA ONLY)                 */}
         {/* ========================================================================= */}
         <div className="flex flex-col h-full min-h-0 bg-background overflow-hidden">
           

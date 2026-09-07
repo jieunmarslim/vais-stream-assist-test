@@ -214,4 +214,5 @@ export interface IDiscoveryEngineResource {
   displayName: string;
   solutionType?: string;
   dataStoreIds?: string[];
+  parserType?: 'LAYOUT' | 'DIGITAL' | 'OCR' | 'DEFAULT' | 'UNSPECIFIED';
 }

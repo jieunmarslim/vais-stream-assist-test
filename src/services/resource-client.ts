@@ -47,45 +47,74 @@ export class ResourceService {
       };
     }
 
-    const targetUrl = `https://discoveryengine.googleapis.com/${apiVersion}/projects/${projectId}/locations/${location}/collections/${collectionId}/${resourceType}`;
+    const items: IDiscoveryEngineResource[] = [];
+    let pageToken: string | undefined = undefined;
+    let pageCount = 0;
 
     try {
-      const res = await fetch(targetUrl, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Goog-User-Project': quotaProject || projectId
+      do {
+        let targetUrl = `https://discoveryengine.googleapis.com/${apiVersion}/projects/${projectId}/locations/${location}/collections/${collectionId}/${resourceType}?pageSize=100`;
+        if (pageToken) {
+          targetUrl += `&pageToken=${encodeURIComponent(pageToken)}`;
         }
-      });
 
-      const data = await res.json();
-      if (!res.ok) {
-        return {
-          status: 'error',
-          message: data?.error?.message || `GCP HTTP ${res.status} 오류`
-        };
-      }
+        const res = await fetch(targetUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-Goog-User-Project': quotaProject || projectId
+          }
+        });
 
-      const items: IDiscoveryEngineResource[] = [];
-
-      if (resourceType === 'engines') {
-        for (const e of data.engines || []) {
-          const id = e.name?.split('/').pop() || '';
-          items.push({
-            id,
-            displayName: e.displayName || id,
-            solutionType: e.solutionType,
-            dataStoreIds: (e.dataStoreIds || []).map((ds: string) => ds.split('/').pop() || '')
-          });
+        const data = await res.json();
+        if (!res.ok) {
+          return {
+            status: 'error',
+            message: data?.error?.message || `GCP HTTP ${res.status} 오류`
+          };
         }
-      } else {
-        for (const d of data.dataStores || []) {
-          const id = d.name?.split('/').pop() || '';
-          items.push({
-            id,
-            displayName: d.displayName || id
-          });
+
+        if (resourceType === 'engines') {
+          for (const e of data.engines || []) {
+            const id = e.name?.split('/').pop() || '';
+            const rawDsIds = [
+              ...(e.dataStoreIds || []),
+              ...((e.dataStores || []).map((ds: string) => ds.split('/').pop() || ''))
+            ].filter(Boolean);
+            const dataStoreIds = Array.from(new Set(rawDsIds));
+
+            items.push({
+              id,
+              displayName: e.displayName || id,
+              solutionType: e.solutionType,
+              dataStoreIds
+            });
+          }
+        } else {
+          for (const d of data.dataStores || []) {
+            const id = d.name?.split('/').pop() || '';
+            const parsingConfig = d.documentProcessingConfig?.defaultParsingConfig;
+            let parserType: IEngineDataStoreItem['parserType'] = 'UNSPECIFIED';
+            if (parsingConfig?.layoutParsingConfig) {
+              parserType = 'LAYOUT';
+            } else if (parsingConfig?.digitalParsingConfig) {
+              parserType = 'DIGITAL';
+            } else if (parsingConfig?.ocrParsingConfig) {
+              parserType = 'OCR';
+            } else if (parsingConfig) {
+              parserType = 'DEFAULT';
+            }
+
+            items.push({
+              id,
+              displayName: d.displayName || id,
+              parserType
+            });
+          }
         }
-      }
+
+        pageToken = data.nextPageToken;
+        pageCount++;
+      } while (pageToken && pageCount < 10);
 
       return {
         status: 'ok',
@@ -134,7 +163,11 @@ export class ResourceService {
         };
       }
 
-      const dataStoreIds: string[] = (engineData.dataStoreIds || []).map((ds: string) => ds.split('/').pop() || '');
+      const rawIds: string[] = [
+        ...(engineData.dataStoreIds || []),
+        ...((engineData.dataStores || []).map((ds: string) => ds.split('/').pop() || ''))
+      ].map((ds: string) => ds.split('/').pop() || '').filter(Boolean);
+      const dataStoreIds = Array.from(new Set(rawIds));
       const dataStoreItems: IEngineDataStoreItem[] = [];
 
       // Fetch metadata in parallel for each dataStore attached to this engine
