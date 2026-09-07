@@ -29,9 +29,13 @@ export class AppRouter {
     const url = new URL(req.url || '/', `http://${host}`);
     const pathname = url.pathname;
 
+    const distDir = path.resolve(process.cwd(), 'dist');
+    const isDistAvailable = fs.existsSync(path.join(distDir, 'index.html'));
+    const baseDir = isDistAvailable ? distDir : this.staticDir;
+
     // 1. Static Web UI
     if (pathname === '/' || pathname === '/index.html') {
-      const indexPath = path.join(this.staticDir, 'index.html');
+      const indexPath = path.join(baseDir, 'index.html');
       if (fs.existsSync(indexPath)) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(fs.readFileSync(indexPath));
@@ -39,11 +43,11 @@ export class AppRouter {
       }
     }
 
-    if (pathname.startsWith('/static/')) {
-      const relPath = pathname.replace('/static/', '');
-      // Prevent path traversal
+    if (pathname.startsWith('/assets/') || pathname.startsWith('/static/')) {
+      const folder = pathname.startsWith('/assets/') ? 'assets' : '';
+      const relPath = pathname.replace(/^\/(assets|static)\//, '');
       const safeRelPath = path.normalize(relPath).replace(/^(\.\.[\/\\])+/, '');
-      const fullPath = path.join(this.staticDir, safeRelPath);
+      const fullPath = path.join(baseDir, folder, safeRelPath);
 
       if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
         const ext = path.extname(fullPath);
@@ -52,7 +56,8 @@ export class AppRouter {
           '.ts': 'application/javascript; charset=utf-8',
           '.css': 'text/css; charset=utf-8',
           '.html': 'text/html; charset=utf-8',
-          '.json': 'application/json; charset=utf-8'
+          '.json': 'application/json; charset=utf-8',
+          '.svg': 'image/svg+xml'
         };
         res.writeHead(200, { 'Content-Type': mimeMap[ext] || 'text/plain' });
         res.end(fs.readFileSync(fullPath));
