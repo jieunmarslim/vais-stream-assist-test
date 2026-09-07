@@ -587,21 +587,15 @@ export default function App() {
             POST
           </div>
 
-          {/* Endpoint URL Display */}
-          <div className="flex-1 flex items-center px-3 py-1 font-mono text-xs text-foreground select-all overflow-x-auto whitespace-nowrap scrollbar-none bg-background">
-            <span className="text-muted-foreground font-semibold">https://discoveryengine.googleapis.com/</span>
-            <span className="text-orange-500 font-bold">{apiVersion}</span>
-            <span className="text-muted-foreground">/projects/</span>
-            <span className="text-foreground font-bold">{projectId}</span>
-            <span className="text-muted-foreground">/locations/</span>
-            <span className="text-emerald-500 font-bold">{location}</span>
-            <span className="text-muted-foreground">/collections/default_collection/</span>
-            <span className="text-muted-foreground">{targetType}/</span>
-            <span className="text-foreground font-bold">{engineId}</span>
-            <span className="text-muted-foreground">/servingConfigs/</span>
-            <span className="text-foreground">{servingConfigId}</span>
-            <span className="text-orange-500 font-bold">:search</span>
-          </div>
+          {/* Endpoint URL Input (Single continuous string so selection is smooth) */}
+          <input
+            type="text"
+            readOnly
+            value={endpointUrl}
+            onFocus={(e) => e.target.select()}
+            className="flex-1 bg-transparent border-0 font-mono text-xs text-foreground px-3 py-1.5 focus:outline-none focus:ring-0 select-all cursor-text min-w-0"
+            spellCheck={false}
+          />
 
           {/* Action Buttons */}
           <div className="flex items-center gap-1 p-1 bg-muted/40 border-l border-input shrink-0">
@@ -644,44 +638,44 @@ export default function App() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
             
             {/* Request Navigation Tabs */}
-            <div className="px-3 pt-1 border-b border-border bg-muted/10 shrink-0">
-              <TabsList className="w-full justify-start border-b-0 h-9 gap-2">
-                <TabsTrigger value="params" className="flex items-center gap-1.5 text-xs py-2">
+            <div className="px-4 border-b border-border bg-muted/10 shrink-0">
+              <TabsList className="w-full justify-start border-b-0 h-10 gap-6">
+                <TabsTrigger value="params" className="flex items-center gap-2 text-xs py-2 px-3">
                   <Sliders className="h-3.5 w-3.5" />
                   <span>Params</span>
-                  <Badge variant="secondary" className="ml-0.5 text-[9px] h-4 px-1">
+                  <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1.5 font-mono">
                     {pageSizeEnabled ? 1 : 0}
                   </Badge>
                 </TabsTrigger>
 
-                <TabsTrigger value="datastores" className="flex items-center gap-1.5 text-xs py-2">
+                <TabsTrigger value="datastores" className="flex items-center gap-2 text-xs py-2 px-3">
                   <Database className="h-3.5 w-3.5" />
                   <span>DataStores</span>
                   <Badge 
                     variant={selectedDsIds.size > 0 ? "default" : "outline"} 
-                    className="ml-0.5 text-[9px] h-4 px-1 font-mono"
+                    className="ml-1 text-[9px] h-4 px-1.5 font-mono"
                   >
                     {selectedDsIds.size}/{dataStores.length}
                   </Badge>
                 </TabsTrigger>
 
-                <TabsTrigger value="specs" className="flex items-center gap-1.5 text-xs py-2">
+                <TabsTrigger value="specs" className="flex items-center gap-2 text-xs py-2 px-3">
                   <Sparkles className="h-3.5 w-3.5" />
                   <span>Specs & Body</span>
                 </TabsTrigger>
 
-                <TabsTrigger value="headers" className="flex items-center gap-1.5 text-xs py-2">
+                <TabsTrigger value="headers" className="flex items-center gap-2 text-xs py-2 px-3">
                   <Key className="h-3.5 w-3.5" />
                   <span>Headers</span>
-                  <Badge variant="secondary" className="ml-0.5 text-[9px] h-4 px-1">3</Badge>
+                  <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1.5 font-mono">3</Badge>
                 </TabsTrigger>
 
-                <TabsTrigger value="target" className="flex items-center gap-1.5 text-xs py-2">
+                <TabsTrigger value="target" className="flex items-center gap-2 text-xs py-2 px-3">
                   <Settings className="h-3.5 w-3.5" />
                   <span>Target Config</span>
                 </TabsTrigger>
 
-                <TabsTrigger value="curl" className="flex items-center gap-1.5 text-xs py-2">
+                <TabsTrigger value="curl" className="flex items-center gap-2 text-xs py-2 px-3">
                   <FileCode className="h-3.5 w-3.5" />
                   <span>cURL / Outgoing</span>
                 </TabsTrigger>
