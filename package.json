@@ -1,0 +1,13 @@
+{
+  "name": "vais-stream-assist-test",
+  "version": "1.0.0",
+  "description": "Google Gemini Enterprise / Vertex AI Search Parameter Playground & Raw Data Inspector",
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-strip-types src/index.ts",
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "test": "node --experimental-strip-types test/payload-builder.test.ts"
+  },
+  "keywords": ["gemini-enterprise", "vertex-ai-search", "discovery-engine", "parameter-tester"],
+  "author": "Google Cloud Engineering"
+}

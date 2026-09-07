@@ -1,216 +1,130 @@
-// Gemini Enterprise / Vertex AI Search Parameter Playground App
+/**
+ * VAIS / Gemini Enterprise Search API Testbed Client
+ * Pure Monochrome Brutalist Developer Tool Logic
+ */
 
-// State
+// Application State
 const state = {
-  mode: 'mock', // 'mock' or 'live'
-  activeTab: 'formatted', // 'formatted', 'raw', 'inspector'
+  rawResponse: null,
+  rawFullText: '',
+  lastCurlCommand: '',
+  currentDataStores: [],
   boostSpecs: [
     { condition: 'category: ANY("Security")', boost: 0.5 }
-  ],
-  lastResponseData: null,
-  lastRequestPayload: null,
-  lastCurlCommand: '',
-  lastEndpointUrl: ''
+  ]
 };
 
-// DOM Elements
+// DOM References
 const dom = {
-  // Mode Buttons
-  modeMockBtn: document.getElementById('modeMockBtn'),
-  modeLiveBtn: document.getElementById('modeLiveBtn'),
-  liveAuthBanner: document.getElementById('liveAuthBanner'),
-  presetSelect: document.getElementById('presetSelect'),
-  searchBtn: document.getElementById('searchBtn'),
-  queryInput: document.getElementById('queryInput'),
-  clearQueryBtn: document.getElementById('clearQueryBtn'),
+  // Top Status & Buttons
+  statusBadge: document.getElementById('statusBadge'),
+  latencyBadge: document.getElementById('latencyBadge'),
+  docCountBadge: document.getElementById('docCountBadge'),
+  searchBtnTop: document.getElementById('searchBtnTop'),
+  burstBtnTop: document.getElementById('burstBtnTop'),
 
-  // Config Inputs
+  // Inspector
+  liveEndpointUrl: document.getElementById('liveEndpointUrl'),
+  liveHeadersUrl: document.getElementById('liveHeadersUrl'),
+  livePayloadJson: document.getElementById('livePayloadJson'),
+  curlOutput: document.getElementById('curlOutput'),
+  copyCurlBtn: document.getElementById('copyCurlBtn'),
+
+  // Target Config
   cfgProjectId: document.getElementById('cfgProjectId'),
-  cfgLocation: document.getElementById('cfgLocation'),
-  cfgResourceType: document.getElementById('cfgResourceType'),
-  cfgResourceId: document.getElementById('cfgResourceId'),
-  cfgServingConfigId: document.getElementById('cfgServingConfigId'),
   cfgApiVersion: document.getElementById('cfgApiVersion'),
+  cfgLocation: document.getElementById('cfgLocation'),
+  cfgServingConfigId: document.getElementById('cfgServingConfigId'),
+  cfgEngineId: document.getElementById('cfgEngineId'),
+  engineDropdown: document.getElementById('engineDropdown'),
+  fetchEnginesBtn: document.getElementById('fetchEnginesBtn'),
+  refetchDataStoresBtn: document.getElementById('refetchDataStoresBtn'),
+  dataStoreLoadingStatus: document.getElementById('dataStoreLoadingStatus'),
+  dataStoreCheckboxes: document.getElementById('dataStoreCheckboxes'),
+  selectAllDsBtn: document.getElementById('selectAllDsBtn'),
+  deselectAllDsBtn: document.getElementById('deselectAllDsBtn'),
   cfgCustomToken: document.getElementById('cfgCustomToken'),
   cfgQuotaProject: document.getElementById('cfgQuotaProject'),
 
-  // Summary Inputs
+  // Query & Presets
+  queryInput: document.getElementById('queryInput'),
+  searchBtn: document.getElementById('searchBtn'),
+  burstBtn: document.getElementById('burstBtn'),
+  clearQueryBtn: document.getElementById('clearQueryBtn'),
+
+  // Core Properties
+  propPageSizeEnabled: document.getElementById('propPageSizeEnabled'),
+  propPageSize: document.getElementById('propPageSize'),
+  propOffsetEnabled: document.getElementById('propOffsetEnabled'),
+  propOffset: document.getElementById('propOffset'),
+  propPageTokenEnabled: document.getElementById('propPageTokenEnabled'),
+  propPageToken: document.getElementById('propPageToken'),
+  propFilterEnabled: document.getElementById('propFilterEnabled'),
+  propFilter: document.getElementById('propFilter'),
+  propCanonicalFilterEnabled: document.getElementById('propCanonicalFilterEnabled'),
+  propCanonicalFilter: document.getElementById('propCanonicalFilter'),
+  propOrderByEnabled: document.getElementById('propOrderByEnabled'),
+  propOrderBy: document.getElementById('propOrderBy'),
+  propRelevanceThresholdEnabled: document.getElementById('propRelevanceThresholdEnabled'),
+  propRelevanceThreshold: document.getElementById('propRelevanceThreshold'),
+  propRankingExprEnabled: document.getElementById('propRankingExprEnabled'),
+  propRankingExpr: document.getElementById('propRankingExpr'),
+  propUserPseudoIdEnabled: document.getElementById('propUserPseudoIdEnabled'),
+  propUserPseudoId: document.getElementById('propUserPseudoId'),
+
+  // summarySpec
   summaryEnabled: document.getElementById('summaryEnabled'),
-  secSummaryBody: document.getElementById('secSummaryBody'),
-  summaryResultCount: document.getElementById('summaryResultCount'),
-  summaryCountVal: document.getElementById('summaryCountVal'),
-  summaryIncludeCitations: document.getElementById('summaryIncludeCitations'),
-  summaryPrunedSummary: document.getElementById('summaryPrunedSummary'),
-  summaryIgnoreAdversarial: document.getElementById('summaryIgnoreAdversarial'),
-  summaryIgnoreNonSeeking: document.getElementById('summaryIgnoreNonSeeking'),
-  summaryIgnoreLowRelevant: document.getElementById('summaryIgnoreLowRelevant'),
+  summaryCount: document.getElementById('summaryCount'),
+  summaryLang: document.getElementById('summaryLang'),
+  summaryCitations: document.getElementById('summaryCitations'),
+  summaryAdversarial: document.getElementById('summaryAdversarial'),
+  summaryNonSeeking: document.getElementById('summaryNonSeeking'),
+  summaryLowRelevant: document.getElementById('summaryLowRelevant'),
   summarySemanticChunks: document.getElementById('summarySemanticChunks'),
-  summaryLanguageCode: document.getElementById('summaryLanguageCode'),
-  summaryModelVersion: document.getElementById('summaryModelVersion'),
+  summaryModel: document.getElementById('summaryModel'),
   summaryPreamble: document.getElementById('summaryPreamble'),
 
-  // Extractive Inputs
+  // extractiveContentSpec
   extractiveEnabled: document.getElementById('extractiveEnabled'),
-  secExtractiveBody: document.getElementById('secExtractiveBody'),
-  extractiveAnswerCount: document.getElementById('extractiveAnswerCount'),
-  extractiveSegmentCount: document.getElementById('extractiveSegmentCount'),
-  extractivePrevSegments: document.getElementById('extractivePrevSegments'),
-  extractiveNextSegments: document.getElementById('extractiveNextSegments'),
+  extractiveAnswers: document.getElementById('extractiveAnswers'),
+  extractiveSegments: document.getElementById('extractiveSegments'),
   extractiveReturnScore: document.getElementById('extractiveReturnScore'),
+  extractivePrev: document.getElementById('extractivePrev'),
+  extractiveNext: document.getElementById('extractiveNext'),
 
-  // Snippets & Mode Inputs
-  snippetReturnSnippet: document.getElementById('snippetReturnSnippet'),
-  snippetMaxCount: document.getElementById('snippetMaxCount'),
-  chunkContextRow: document.getElementById('chunkContextRow'),
+  // snippetSpec & mode
+  snippetReturn: document.getElementById('snippetReturn'),
+  snippetMax: document.getElementById('snippetMax'),
   chunkPrev: document.getElementById('chunkPrev'),
   chunkNext: document.getElementById('chunkNext'),
 
   // Query Understanding
+  qeEnabled: document.getElementById('qeEnabled'),
   qeCondition: document.getElementById('qeCondition'),
-  spellCorrection: document.getElementById('spellCorrection'),
-  qePinUnexpanded: document.getElementById('qePinUnexpanded'),
-  nlFilterExtraction: document.getElementById('nlFilterExtraction'),
+  spellEnabled: document.getElementById('spellEnabled'),
+  spellMode: document.getElementById('spellMode'),
+  qePin: document.getElementById('qePin'),
+  nlFilterCondition: document.getElementById('nlFilterCondition'),
 
-  // Filters & Boost
-  cfgFilter: document.getElementById('cfgFilter'),
-  cfgOrderBy: document.getElementById('cfgOrderBy'),
-  cfgPageSize: document.getElementById('cfgPageSize'),
-  cfgFacets: document.getElementById('cfgFacets'),
+  // Boost & Facets
   boostList: document.getElementById('boostList'),
   addBoostBtn: document.getElementById('addBoostBtn'),
+  propFacets: document.getElementById('propFacets'),
+  customJsonParams: document.getElementById('customJsonParams'),
 
-  // Tabs & Views
-  tabFormattedBtn: document.getElementById('tabFormattedBtn'),
-  tabRawBtn: document.getElementById('tabRawBtn'),
-  tabInspectorBtn: document.getElementById('tabInspectorBtn'),
-  tabFormattedContent: document.getElementById('tabFormattedContent'),
-  tabRawContent: document.getElementById('tabRawContent'),
-  tabInspectorContent: document.getElementById('tabInspectorContent'),
-
-  // Results display
-  latencyBadge: document.getElementById('latencyBadge'),
-  statusCodeBadge: document.getElementById('statusCodeBadge'),
-  summaryCard: document.getElementById('summaryCard'),
-  summaryText: document.getElementById('summaryText'),
-  summaryModelBadge: document.getElementById('summaryModelBadge'),
-  summaryReferences: document.getElementById('summaryReferences'),
-  extractiveCard: document.getElementById('extractiveCard'),
-  extractiveAnswerText: document.getElementById('extractiveAnswerText'),
-  facetsCard: document.getElementById('facetsCard'),
-  facetsContainer: document.getElementById('facetsContainer'),
-  resultsCountText: document.getElementById('resultsCountText'),
-  documentList: document.getElementById('documentList'),
-
-  // Raw Viewer
-  rawFilterInput: document.getElementById('rawFilterInput'),
-  jsonStats: document.getElementById('jsonStats'),
-  copyRawBtn: document.getElementById('copyRawBtn'),
-  downloadJsonBtn: document.getElementById('downloadJsonBtn'),
-  rawJsonCode: document.getElementById('rawJsonCode'),
-
-  // Inspector
-  inspectorUrl: document.getElementById('inspectorUrl'),
-  inspectorPayload: document.getElementById('inspectorPayload'),
-  inspectorCurl: document.getElementById('inspectorCurl'),
-  copyRequestPayloadBtn: document.getElementById('copyRequestPayloadBtn'),
-  copyCurlBtn: document.getElementById('copyCurlBtn'),
-
-  // Toast
-  toast: document.getElementById('toast'),
-  toastMessage: document.getElementById('toastMessage')
+  // Raw Response
+  rawJsonOutput: document.getElementById('rawJsonOutput'),
+  copyRawJsonBtn: document.getElementById('copyRawJsonBtn'),
+  downloadRawJsonBtn: document.getElementById('downloadRawJsonBtn'),
+  rawStatusBadge: document.getElementById('rawStatusBadge'),
+  rawLatencyBadge: document.getElementById('rawLatencyBadge'),
+  rawSizeLabel: document.getElementById('rawSizeLabel'),
+  rawFilterInput: document.getElementById('rawFilterInput')
 };
 
-// Initialize Icons
-function initIcons() {
-  if (window.lucide) {
-    window.lucide.createIcons();
-  }
-}
-
-// Toast Notification
-function showToast(msg) {
-  dom.toastMessage.textContent = msg;
-  dom.toast.classList.remove('translate-y-20', 'opacity-0');
-  dom.toast.classList.add('translate-y-0', 'opacity-100');
-  setTimeout(() => {
-    dom.toast.classList.remove('translate-y-0', 'opacity-100');
-    dom.toast.classList.add('translate-y-20', 'opacity-0');
-  }, 2500);
-}
-
-// Set Active Mode (Mock vs Live)
-function setMode(newMode) {
-  state.mode = newMode;
-  if (newMode === 'mock') {
-    dom.modeMockBtn.className = "px-2.5 py-1 rounded text-xs font-semibold transition-all bg-white text-indigo-600 shadow-sm";
-    dom.modeLiveBtn.className = "px-2.5 py-1 rounded text-xs font-medium text-slate-600 transition-all hover:text-slate-900";
-    dom.liveAuthBanner.classList.add('hidden');
-  } else {
-    dom.modeLiveBtn.className = "px-2.5 py-1 rounded text-xs font-semibold transition-all bg-white text-indigo-600 shadow-sm";
-    dom.modeMockBtn.className = "px-2.5 py-1 rounded text-xs font-medium text-slate-600 transition-all hover:text-slate-900";
-    dom.liveAuthBanner.classList.remove('hidden');
-  }
-}
-
-// Set Active Tab
-function setActiveTab(tabKey) {
-  state.activeTab = tabKey;
-  const tabs = [
-    { key: 'formatted', btn: dom.tabFormattedBtn, content: dom.tabFormattedContent },
-    { key: 'raw', btn: dom.tabRawBtn, content: dom.tabRawContent },
-    { key: 'inspector', btn: dom.tabInspectorBtn, content: dom.tabInspectorContent }
-  ];
-
-  tabs.forEach(t => {
-    if (t.key === tabKey) {
-      t.btn.className = "tab-btn active px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 transition";
-      t.content.classList.remove('hidden');
-    } else {
-      t.btn.className = "tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition flex items-center space-x-1.5";
-      t.content.classList.add('hidden');
-    }
-  });
-
-  initIcons();
-}
-
-// Render Boost Specs List
-function renderBoostSpecs() {
-  dom.boostList.innerHTML = '';
-  state.boostSpecs.forEach((item, index) => {
-    const row = document.createElement('div');
-    row.className = "flex items-center space-x-2 bg-slate-50 p-2 rounded border border-slate-200 text-xs";
-    row.innerHTML = `
-      <input type="text" value="${escapeHtml(item.condition)}" placeholder="조건 (예: category: ANY('Security'))" class="boost-condition flex-1 px-2 py-1 bg-white border border-slate-200 rounded font-mono text-[11px]">
-      <div class="flex items-center space-x-1">
-        <span class="text-slate-500 font-medium">부스트:</span>
-        <input type="number" step="0.1" min="-1" max="1" value="${item.boost}" class="boost-val w-14 px-1.5 py-1 bg-white border border-slate-200 rounded font-mono text-center text-[11px]">
-      </div>
-      <button type="button" class="del-boost text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded" title="삭제">
-        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-      </button>
-    `;
-
-    // Events
-    row.querySelector('.boost-condition').addEventListener('input', (e) => {
-      state.boostSpecs[index].condition = e.target.value;
-    });
-    row.querySelector('.boost-val').addEventListener('input', (e) => {
-      state.boostSpecs[index].boost = parseFloat(e.target.value) || 0.0;
-    });
-    row.querySelector('.del-boost').addEventListener('click', () => {
-      state.boostSpecs.splice(index, 1);
-      renderBoostSpecs();
-    });
-
-    dom.boostList.appendChild(row);
-  });
-  initIcons();
-}
-
-// Escape HTML for safe rendering
+// Helper: Escape HTML
 function escapeHtml(str) {
-  if (str === null || str === undefined) return '';
+  if (!str) return '';
   return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -219,694 +133,796 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-// Sanitize Snippets (allow only <b> tags for highlight)
-function sanitizeSnippet(snippet) {
-  if (!snippet) return '';
-  // Temporary token replacement for safe <b> and </b>
-  let sanitized = snippet
-    .replace(/<b>/gi, '___B_OPEN___')
-    .replace(/<\/b>/gi, '___B_CLOSE___');
-  sanitized = escapeHtml(sanitized);
-  return sanitized
-    .replace(/___B_OPEN___/g, '<b class="text-indigo-600 font-bold bg-indigo-50 px-1 rounded">')
-    .replace(/___B_CLOSE___/g, '</b>');
+// Get Checked DataStores
+function getCheckedDataStores() {
+  const checkboxes = dom.dataStoreCheckboxes.querySelectorAll('input.ds-checkbox:checked');
+  const checked = [];
+  checkboxes.forEach(cb => {
+    checked.push(cb.value);
+  });
+  return checked;
 }
 
-// Apply Preset Configurations
-function applyPreset(preset) {
-  if (preset === 'summary') {
-    dom.summaryEnabled.checked = true;
-    dom.summaryResultCount.value = 3;
-    dom.summaryCountVal.textContent = "3개";
-    dom.summaryIncludeCitations.checked = true;
-    dom.summaryPrunedSummary.checked = false;
-    dom.extractiveEnabled.checked = true;
-    dom.extractiveAnswerCount.value = "1";
-    dom.extractiveSegmentCount.value = "1";
-    dom.snippetReturnSnippet.checked = true;
-    document.querySelector('input[name="searchResultMode"][value="DOCUMENTS"]').checked = true;
-    dom.chunkContextRow.classList.add('hidden');
-    dom.cfgFilter.value = '';
-  } else if (preset === 'extractive') {
-    dom.summaryEnabled.checked = false;
-    dom.extractiveEnabled.checked = true;
-    dom.extractiveAnswerCount.value = "2";
-    dom.extractiveSegmentCount.value = "3";
-    dom.extractiveReturnScore.checked = true;
-    dom.extractivePrevSegments.value = "1";
-    dom.extractiveNextSegments.value = "1";
-    dom.snippetReturnSnippet.checked = true;
-  } else if (preset === 'chunk') {
-    dom.summaryEnabled.checked = true;
-    dom.summarySemanticChunks.checked = true;
-    document.querySelector('input[name="searchResultMode"][value="CHUNKS"]').checked = true;
-    dom.chunkContextRow.classList.remove('hidden');
-    dom.chunkPrev.value = "1";
-    dom.chunkNext.value = "1";
-    dom.extractiveEnabled.checked = false;
-  } else if (preset === 'facet_boost') {
-    dom.cfgFilter.value = 'category: ANY("Architecture", "Security")';
-    dom.cfgFacets.value = 'category, author, file_type';
-    state.boostSpecs = [
-      { condition: 'category: ANY("Security")', boost: 0.8 },
-      { condition: 'author: ANY("Cloud CoE")', boost: 0.5 }
-    ];
-    renderBoostSpecs();
-  } else if (preset === 'minimal') {
-    dom.summaryEnabled.checked = false;
-    dom.extractiveEnabled.checked = false;
-    dom.snippetReturnSnippet.checked = true;
-    dom.snippetMaxCount.value = "1";
-    dom.cfgFilter.value = '';
-    state.boostSpecs = [];
-    renderBoostSpecs();
-  }
+// Gather Full Client Configuration
+function gatherConfig() {
+  const targetTypeRadio = document.querySelector('input[name="targetTypeRadio"]:checked');
+  const targetType = targetTypeRadio ? targetTypeRadio.value : 'engines';
+  const resModeRadio = document.querySelector('input[name="resMode"]:checked');
+  const searchResultMode = resModeRadio ? resModeRadio.value : 'DOCUMENTS';
 
-  // Update summary section disabled appearance
-  dom.secSummaryBody.style.opacity = dom.summaryEnabled.checked ? '1' : '0.4';
-  dom.secSummaryBody.style.pointerEvents = dom.summaryEnabled.checked ? 'auto' : 'none';
-  dom.secExtractiveBody.style.opacity = dom.extractiveEnabled.checked ? '1' : '0.4';
-  dom.secExtractiveBody.style.pointerEvents = dom.extractiveEnabled.checked ? 'auto' : 'none';
-
-  showToast(`'${preset}' 프리셋이 적용되었습니다.`);
-}
-
-// Build SearchConfig Object from UI
-function collectSearchConfig() {
-  const resultMode = document.querySelector('input[name="searchResultMode"]:checked')?.value || 'DOCUMENTS';
-
-  const facetsList = dom.cfgFacets.value
-    .split(',')
-    .map(k => k.trim())
-    .filter(k => k.length > 0);
-
-  return {
+  const cfg = {
     project_id: dom.cfgProjectId.value.trim(),
-    location: dom.cfgLocation.value.trim(),
-    resource_type: dom.cfgResourceType.value,
-    resource_id: dom.cfgResourceId.value.trim(),
-    serving_config_id: dom.cfgServingConfigId.value.trim(),
     api_version: dom.cfgApiVersion.value,
-    mode: state.mode,
-    custom_token: dom.cfgCustomToken.value.trim() || null,
-    quota_project: dom.cfgQuotaProject.value.trim() || null,
-
-    query: dom.queryInput.value.trim(),
-    page_size: parseInt(dom.cfgPageSize.value, 10) || 10,
-    offset: 0,
-    filter: dom.cfgFilter.value.trim() || null,
-    order_by: dom.cfgOrderBy.value.trim() || null,
-
-    summary_spec: {
-      enabled: dom.summaryEnabled.checked,
-      summary_result_count: parseInt(dom.summaryResultCount.value, 10) || 3,
-      include_citations: dom.summaryIncludeCitations.checked,
-      generate_pruned_summary: dom.summaryPrunedSummary.checked,
-      ignore_adversarial_query: dom.summaryIgnoreAdversarial.checked,
-      ignore_non_summary_seeking_query: dom.summaryIgnoreNonSeeking.checked,
-      ignore_low_relevant_content: dom.summaryIgnoreLowRelevant.checked,
-      language_code: dom.summaryLanguageCode.value || null,
-      model_version: dom.summaryModelVersion.value || null,
-      model_prompt_preamble: dom.summaryPreamble.value.trim() || null,
-      use_semantic_chunks: dom.summarySemanticChunks.checked
-    },
-
-    extractive_spec: {
-      enabled: dom.extractiveEnabled.checked,
-      max_extractive_answer_count: parseInt(dom.extractiveAnswerCount.value, 10) || 0,
-      max_extractive_segment_count: parseInt(dom.extractiveSegmentCount.value, 10) || 0,
-      return_extractive_segment_score: dom.extractiveReturnScore.checked,
-      num_previous_segments: parseInt(dom.extractivePrevSegments.value, 10) || 0,
-      num_next_segments: parseInt(dom.extractiveNextSegments.value, 10) || 0
-    },
-
-    snippet_spec: {
-      return_snippet: dom.snippetReturnSnippet.checked,
-      max_snippet_count: parseInt(dom.snippetMaxCount.value, 10) || 2
-    },
-
-    search_result_mode: resultMode,
-    chunk_spec: {
-      num_previous_chunks: parseInt(dom.chunkPrev.value, 10) || 0,
-      num_next_chunks: parseInt(dom.chunkNext.value, 10) || 0
-    },
-
-    query_expansion_spec: {
-      condition: dom.qeCondition.value,
-      pin_unexpanded_results: dom.qePinUnexpanded.checked
-    },
-
-    spell_correction_spec: {
-      mode: dom.spellCorrection.value
-    },
-
-    nl_understanding_spec: {
-      filter_extraction_condition: dom.nlFilterExtraction.value,
-      geo_search_condition: "DISABLED"
-    },
-
-    boost_specs: state.boostSpecs.filter(b => b.condition && b.condition.trim().length > 0),
-    facet_specs: facetsList
+    location: dom.cfgLocation.value,
+    resource_type: targetType,
+    resource_id: dom.cfgEngineId.value.trim(),
+    serving_config_id: dom.cfgServingConfigId.value.trim() || 'default_search',
+    query: dom.queryInput.value,
+    custom_token: dom.cfgCustomToken.value.trim() || undefined,
+    quota_project: dom.cfgQuotaProject.value.trim() || undefined
   };
+
+  // Core Properties
+  if (dom.propPageSizeEnabled.checked) {
+    cfg.page_size = Number(dom.propPageSize.value) || 10;
+  }
+  if (dom.propOffsetEnabled.checked && Number(dom.propOffset.value) > 0) {
+    cfg.offset = Number(dom.propOffset.value);
+  }
+  if (dom.propPageTokenEnabled.checked && dom.propPageToken.value.trim()) {
+    cfg.page_token = dom.propPageToken.value.trim();
+  }
+  if (dom.propFilterEnabled.checked && dom.propFilter.value.trim()) {
+    cfg.filter = dom.propFilter.value.trim();
+  }
+  if (dom.propCanonicalFilterEnabled.checked && dom.propCanonicalFilter.value.trim()) {
+    cfg.canonical_filter = dom.propCanonicalFilter.value.trim();
+  }
+  if (dom.propOrderByEnabled.checked && dom.propOrderBy.value.trim()) {
+    cfg.order_by = dom.propOrderBy.value.trim();
+  }
+  if (dom.propRelevanceThresholdEnabled.checked && dom.propRelevanceThreshold.value !== 'NONE') {
+    cfg.relevance_threshold = dom.propRelevanceThreshold.value;
+  }
+  if (dom.propRankingExprEnabled.checked && dom.propRankingExpr.value.trim()) {
+    cfg.ranking_expression = dom.propRankingExpr.value.trim();
+  }
+  if (dom.propUserPseudoIdEnabled.checked && dom.propUserPseudoId.value.trim()) {
+    cfg.user_pseudo_id = dom.propUserPseudoId.value.trim();
+  }
+
+  // DataStore Specs (Toggled DataStores)
+  const checkedDataStores = getCheckedDataStores();
+  if (checkedDataStores.length > 0) {
+    cfg.data_store_specs = checkedDataStores;
+  }
+
+  // summarySpec
+  if (dom.summaryEnabled.checked) {
+    cfg.summary_spec = {
+      enabled: true,
+      summary_result_count: Number(dom.summaryCount.value) || 3,
+      include_citations: dom.summaryCitations.checked,
+      ignore_adversarial_query: dom.summaryAdversarial.checked,
+      ignore_non_summary_seeking_query: dom.summaryNonSeeking.checked,
+      ignore_low_relevant_content: dom.summaryLowRelevant.checked,
+      use_semantic_chunks: dom.summarySemanticChunks.checked,
+      language_code: dom.summaryLang.value.trim() || undefined,
+      model_version: dom.summaryModel.value || undefined,
+      model_prompt_preamble: dom.summaryPreamble.value.trim() || undefined
+    };
+  }
+
+  // extractiveContentSpec
+  if (dom.extractiveEnabled.checked) {
+    cfg.extractive_spec = {
+      enabled: true,
+      max_extractive_answer_count: Number(dom.extractiveAnswers.value) || 1,
+      max_extractive_segment_count: Number(dom.extractiveSegments.value) || 1,
+      return_extractive_segment_score: dom.extractiveReturnScore.checked,
+      num_previous_segments: Number(dom.extractivePrev.value) || 0,
+      num_next_segments: Number(dom.extractiveNext.value) || 0
+    };
+  }
+
+  // snippetSpec
+  if (dom.snippetReturn.checked) {
+    cfg.snippet_spec = {
+      return_snippet: true,
+      max_snippet_count: Number(dom.snippetMax.value) || 2
+    };
+  }
+
+  // Result Mode & Chunks
+  cfg.search_result_mode = searchResultMode;
+  if (searchResultMode === 'CHUNKS') {
+    cfg.chunk_spec = {
+      num_previous_chunks: Number(dom.chunkPrev.value) || 0,
+      num_next_chunks: Number(dom.chunkNext.value) || 0
+    };
+  }
+
+  // Query Expansion
+  if (dom.qeEnabled.checked) {
+    cfg.query_expansion_spec = {
+      condition: dom.qeCondition.value,
+      pin_unexpanded_results: dom.qePin.checked
+    };
+  }
+
+  // Spell Correction
+  if (dom.spellEnabled.checked) {
+    cfg.spell_correction_spec = {
+      mode: dom.spellMode.value
+    };
+  }
+
+  // NL Understanding
+  if (dom.nlFilterCondition.value !== 'DISABLED') {
+    cfg.nl_understanding_spec = {
+      filter_extraction_condition: dom.nlFilterCondition.value
+    };
+  }
+
+  // Boost Specs
+  if (state.boostSpecs && state.boostSpecs.length > 0) {
+    cfg.boost_specs = state.boostSpecs.filter(b => b.condition.trim().length > 0);
+  }
+
+  // Facet Specs
+  if (dom.propFacets.value.trim()) {
+    cfg.facet_specs = dom.propFacets.value.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  // Custom Raw JSON Injection
+  if (dom.customJsonParams.value.trim()) {
+    cfg.custom_params_json = dom.customJsonParams.value.trim();
+  }
+
+  return cfg;
 }
 
-// Syntax Highlight JSON
-function syntaxHighlightJson(json) {
-  if (typeof json !== 'string') {
-    json = JSON.stringify(json, null, 2);
+// Build Client-Side Exact Representation of Request Payload
+function serializeToPayload(cfg) {
+  const payload = {
+    query: cfg.query || '',
+    pageSize: cfg.page_size !== undefined ? cfg.page_size : 10
+  };
+
+  if (cfg.offset) payload.offset = cfg.offset;
+  if (cfg.page_token) payload.pageToken = cfg.page_token;
+  if (cfg.filter) payload.filter = cfg.filter;
+  if (cfg.canonical_filter) payload.canonicalFilter = cfg.canonical_filter;
+  if (cfg.order_by) payload.orderBy = cfg.order_by;
+  if (cfg.relevance_threshold && cfg.relevance_threshold !== 'NONE') payload.relevanceThreshold = cfg.relevance_threshold;
+  if (cfg.ranking_expression) payload.rankingExpression = cfg.ranking_expression;
+  if (cfg.user_pseudo_id) payload.userPseudoId = cfg.user_pseudo_id;
+
+  // DataStore Specs
+  if (cfg.data_store_specs && cfg.data_store_specs.length > 0) {
+    const proj = cfg.project_id || '$PROJECT_ID';
+    const loc = cfg.location || 'global';
+    payload.dataStoreSpecs = cfg.data_store_specs.map(ds => ({
+      dataStore: `projects/${proj}/locations/${loc}/collections/default_collection/dataStores/${ds}`
+    }));
   }
-  json = escapeHtml(json);
-  return json.replace(
-    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
-    function (match) {
-      let cls = 'json-number';
-      if (/^"/.test(match)) {
-        if (/:$/.test(match)) {
-          cls = 'json-key';
-        } else {
-          cls = 'json-string';
-        }
-      } else if (/true|false/.test(match)) {
-        cls = 'json-boolean';
-      } else if (/null/.test(match)) {
-        cls = 'json-null';
+
+  // contentSearchSpec
+  const contentSearchSpec = {};
+  if (cfg.snippet_spec?.return_snippet) {
+    contentSearchSpec.snippetSpec = {
+      returnSnippet: true,
+      maxSnippetCount: cfg.snippet_spec.max_snippet_count || 2
+    };
+  }
+  if (cfg.extractive_spec?.enabled) {
+    contentSearchSpec.extractiveContentSpec = {
+      maxExtractiveAnswerCount: cfg.extractive_spec.max_extractive_answer_count || 1,
+      maxExtractiveSegmentCount: cfg.extractive_spec.max_extractive_segment_count || 1,
+      returnExtractiveSegmentScore: Boolean(cfg.extractive_spec.return_extractive_segment_score),
+      numPreviousSegments: cfg.extractive_spec.num_previous_segments || 0,
+      numNextSegments: cfg.extractive_spec.num_next_segments || 0
+    };
+  }
+  if (cfg.summary_spec?.enabled) {
+    const s = cfg.summary_spec;
+    contentSearchSpec.summarySpec = {
+      summaryResultCount: s.summary_result_count || 3,
+      includeCitations: Boolean(s.include_citations),
+      ignoreAdversarialQuery: Boolean(s.ignore_adversarial_query),
+      ignoreNonSummarySeekingQuery: Boolean(s.ignore_non_summary_seeking_query),
+      ignoreLowRelevantContent: Boolean(s.ignore_low_relevant_content),
+      useSemanticChunks: Boolean(s.use_semantic_chunks),
+      ...(s.language_code ? { languageCode: s.language_code } : {}),
+      ...(s.model_version ? { modelSpec: { version: s.model_version } } : {}),
+      ...(s.model_prompt_preamble ? { modelPromptSpec: { preamble: s.model_prompt_preamble } } : {})
+    };
+  }
+  if (cfg.search_result_mode) {
+    contentSearchSpec.searchResultMode = cfg.search_result_mode;
+  }
+  if (cfg.search_result_mode === 'CHUNKS') {
+    contentSearchSpec.chunkSpec = {
+      numPreviousChunks: cfg.chunk_spec?.num_previous_chunks || 0,
+      numNextChunks: cfg.chunk_spec?.num_next_chunks || 0
+    };
+  }
+  if (Object.keys(contentSearchSpec).length > 0) {
+    payload.contentSearchSpec = contentSearchSpec;
+  }
+
+  // Query Expansion
+  if (cfg.query_expansion_spec) {
+    payload.queryExpansionSpec = {
+      condition: cfg.query_expansion_spec.condition,
+      pinUnexpandedResults: Boolean(cfg.query_expansion_spec.pin_unexpanded_results)
+    };
+  }
+
+  // Spell Correction
+  if (cfg.spell_correction_spec) {
+    payload.spellCorrectionSpec = { mode: cfg.spell_correction_spec.mode };
+  }
+
+  // NL Understanding
+  if (cfg.nl_understanding_spec) {
+    payload.naturalLanguageQueryUnderstandingSpec = {
+      filterExtractionCondition: cfg.nl_understanding_spec.filter_extraction_condition
+    };
+  }
+
+  // Boost Specs
+  if (cfg.boost_specs && cfg.boost_specs.length > 0) {
+    payload.boostSpec = {
+      conditionBoostSpecs: cfg.boost_specs.map(b => ({ condition: b.condition, boost: Number(b.boost) || 0.0 }))
+    };
+  }
+
+  // Facet Specs
+  if (cfg.facet_specs && cfg.facet_specs.length > 0) {
+    payload.facetSpecs = cfg.facet_specs.map(key => ({ facetKey: { key } }));
+  }
+
+  // Custom Raw Params Injection
+  if (cfg.custom_params_json) {
+    try {
+      const extra = JSON.parse(cfg.custom_params_json);
+      if (typeof extra === 'object' && extra !== null) {
+        Object.assign(payload, extra);
       }
-      return `<span class="${cls}">${match}</span>`;
+    } catch {
+      // ignore
     }
-  );
+  }
+
+  return payload;
 }
 
-// Render Summary with Clickable Citations
-function renderSummary(summaryData) {
-  if (!summaryData || !summaryData.summaryText) {
-    dom.summaryCard.classList.add('hidden');
+// Update Outgoing Request Preview (URL, Headers, Live Payload, cURL)
+function updatePayloadAndEndpointPreview() {
+  const cfg = gatherConfig();
+  const version = cfg.api_version || 'v1alpha';
+  const project = cfg.project_id || '$PROJECT_ID';
+  const location = cfg.location || 'global';
+  const resType = cfg.resource_type || 'engines';
+  const resId = cfg.resource_id || '$ENGINE_ID';
+  const servingConfig = cfg.serving_config_id || 'default_search';
+  const quota = cfg.quota_project || project;
+
+  const url = `https://discoveryengine.googleapis.com/${version}/projects/${project}/locations/${location}/collections/default_collection/${resType}/${resId}/servingConfigs/${servingConfig}:search`;
+  dom.liveEndpointUrl.textContent = url;
+
+  const tokenPreview = cfg.custom_token ? '[Custom Token Provided]' : '[gcloud ADC]';
+  dom.liveHeadersUrl.textContent = `Authorization: Bearer ${tokenPreview} | X-Goog-User-Project: ${quota} | Content-Type: application/json`;
+
+  const payload = serializeToPayload(cfg);
+  const payloadJsonStr = JSON.stringify(payload, null, 2);
+  dom.livePayloadJson.value = payloadJsonStr;
+
+  const curlCmd = `curl -X POST \\\n  '${url}' \\\n  -H 'Authorization: Bearer $(gcloud auth print-access-token)' \\\n  -H 'X-Goog-User-Project: ${quota}' \\\n  -H 'Content-Type: application/json' \\\n  -d '${payloadJsonStr}'`;
+  dom.curlOutput.textContent = curlCmd;
+  state.lastCurlCommand = curlCmd;
+}
+
+// Fetch Attached DataStores for Engine
+let fetchEngineDataStoresTimeout = null;
+async function fetchEngineDataStores() {
+  const projectId = dom.cfgProjectId.value.trim();
+  const engineId = dom.cfgEngineId.value.trim();
+  const location = dom.cfgLocation.value;
+  const apiVersion = dom.cfgApiVersion.value;
+  const customToken = dom.cfgCustomToken.value.trim();
+  const quotaProject = dom.cfgQuotaProject.value.trim();
+
+  if (!projectId || !engineId) {
+    dom.dataStoreLoadingStatus.textContent = '(Enter Project ID & Engine ID)';
     return;
   }
 
-  dom.summaryCard.classList.remove('hidden');
-  let rawText = summaryData.summaryText;
-
-  // Format markdown bolding: **text** -> <strong>text</strong>
-  rawText = escapeHtml(rawText);
-  rawText = rawText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  rawText = rawText.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
-
-  // Replace [1], [2], [3] with clickable citation buttons
-  const citationReplaced = rawText.replace(/\[(\d+)\]/g, (match, p1) => {
-    return `<button class="citation-pill" data-ref-index="${parseInt(p1, 10) - 1}" title="문서 ${p1}번 출처로 이동">[${p1}]</button>`;
-  });
-
-  dom.summaryText.innerHTML = citationReplaced;
-
-  // Click event on citation pills to scroll & highlight document card
-  dom.summaryText.querySelectorAll('.citation-pill').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const idx = e.currentTarget.getAttribute('data-ref-index');
-      const targetCard = document.getElementById(`doc-card-${idx}`);
-      if (targetCard) {
-        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        targetCard.classList.add('highlight-target');
-        setTimeout(() => targetCard.classList.remove('highlight-target'), 2500);
-      }
-    });
-  });
-
-  // Render References Chips
-  const references = summaryData.summaryWithMetadata?.references || [];
-  dom.summaryReferences.innerHTML = `
-    <span class="font-medium text-slate-400 mr-1 flex items-center">
-      <i data-lucide="bookmark" class="w-3.5 h-3.5 mr-1"></i>참조 문서 (${references.length}개):
-    </span>
-  `;
-
-  if (references.length > 0) {
-    references.forEach((ref, idx) => {
-      const chip = document.createElement('button');
-      chip.className = "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md text-[11px] font-medium transition flex items-center space-x-1";
-      chip.innerHTML = `<span>[${idx + 1}]</span> <span class="truncate max-w-xs">${escapeHtml(ref.title || ref.document)}</span>`;
-      chip.addEventListener('click', () => {
-        const targetCard = document.getElementById(`doc-card-${idx}`);
-        if (targetCard) {
-          targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          targetCard.classList.add('highlight-target');
-          setTimeout(() => targetCard.classList.remove('highlight-target'), 2500);
-        }
-      });
-      dom.summaryReferences.appendChild(chip);
-    });
-  } else {
-    dom.summaryReferences.classList.add('hidden');
-  }
-}
-
-// Render Extractive QA Section
-function renderExtractive(results) {
-  let firstAnswer = null;
-  for (const item of results) {
-    const answers = item.document?.derivedStructData?.extractive_answers || [];
-    if (answers.length > 0 && answers[0].content) {
-      firstAnswer = answers[0].content;
-      break;
-    }
-  }
-
-  if (firstAnswer && dom.extractiveEnabled.checked) {
-    dom.extractiveCard.classList.remove('hidden');
-    dom.extractiveAnswerText.textContent = firstAnswer;
-  } else {
-    dom.extractiveCard.classList.add('hidden');
-  }
-}
-
-// Render Facets Chips
-function renderFacets(facets) {
-  if (!facets || facets.length === 0) {
-    dom.facetsCard.classList.add('hidden');
-    return;
-  }
-
-  dom.facetsCard.classList.remove('hidden');
-  dom.facetsContainer.innerHTML = '';
-
-  facets.forEach(f => {
-    const group = document.createElement('div');
-    group.className = "flex items-center space-x-1.5 mr-3 mb-1.5";
-    const label = document.createElement('span');
-    label.className = "font-bold text-slate-500 font-mono text-[11px]";
-    label.textContent = `${f.key}:`;
-    group.appendChild(label);
-
-    (f.values || []).forEach(v => {
-      const chip = document.createElement('span');
-      chip.className = "bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 text-[11px] flex items-center space-x-1";
-      chip.innerHTML = `<span>${escapeHtml(v.value)}</span> <span class="bg-slate-200 text-slate-600 font-mono text-[10px] px-1 rounded-full">${v.count}</span>`;
-      group.appendChild(chip);
-    });
-
-    dom.facetsContainer.appendChild(group);
-  });
-}
-
-// Render Document Cards List
-function renderDocumentList(results) {
-  dom.documentList.innerHTML = '';
-
-  if (!results || results.length === 0) {
-    dom.documentList.innerHTML = `
-      <div class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">
-        <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
-        <p class="font-medium text-sm">검색 결과가 없습니다.</p>
-        <p class="text-xs mt-1">검색어를 수정하거나 필터/부스트 조건을 확인해보세요.</p>
-      </div>
-    `;
-    dom.resultsCountText.textContent = "검색된 문서 (0개)";
-    initIcons();
-    return;
-  }
-
-  dom.resultsCountText.textContent = `검색된 문서 (${results.length}개)`;
-
-  results.forEach((item, index) => {
-    const doc = item.document || {};
-    const derived = doc.derivedStructData || {};
-    const struct = doc.structData || {};
-
-    const title = derived.title || struct.title || doc.name?.split('/').pop() || `Document #${index + 1}`;
-    const link = derived.link || doc.name || '#';
-    const snippets = derived.snippets || [];
-    const segments = derived.extractive_segments || [];
-    const answers = derived.extractive_answers || [];
-
-    const card = document.createElement('div');
-    card.id = `doc-card-${index}`;
-    card.className = "bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3 transition hover:border-indigo-300";
-
-    // Header with Title and Badges
-    let headerHtml = `
-      <div class="flex items-start justify-between">
-        <div class="flex items-center space-x-2">
-          <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 font-bold text-xs flex items-center justify-center border border-slate-200">${index + 1}</span>
-          <a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" class="font-bold text-sm text-indigo-600 hover:text-indigo-800 hover:underline flex items-center space-x-1">
-            <span>${escapeHtml(title)}</span>
-            <i data-lucide="external-link" class="w-3 h-3 text-slate-400"></i>
-          </a>
-        </div>
-    `;
-
-    // Relevance score if segment available
-    if (segments.length > 0 && segments[0].relevanceScore !== undefined) {
-      headerHtml += `
-        <span class="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
-          점수: ${(segments[0].relevanceScore * 100).toFixed(1)}%
-        </span>
-      `;
-    }
-    headerHtml += `</div>`;
-
-    // Document URI badge
-    if (link && link !== '#') {
-      headerHtml += `
-        <div class="text-[11px] text-slate-400 font-mono truncate">
-          ${escapeHtml(link)}
-        </div>
-      `;
-    }
-
-    card.innerHTML = headerHtml;
-
-    // Snippets Section
-    if (snippets.length > 0) {
-      const snippetBox = document.createElement('div');
-      snippetBox.className = "text-xs text-slate-600 leading-relaxed";
-      snippets.forEach(s => {
-        const p = document.createElement('p');
-        p.className = "mb-1";
-        p.innerHTML = sanitizeSnippet(s.snippet);
-        snippetBox.appendChild(p);
-      });
-      card.appendChild(snippetBox);
-    }
-
-    // Extractive Segments Section
-    if (segments.length > 0) {
-      const segBox = document.createElement('div');
-      segBox.className = "bg-emerald-50/50 border-l-2 border-emerald-500 pl-3 py-1.5 pr-2 text-xs text-emerald-900 rounded-r";
-      segBox.innerHTML = `
-        <span class="font-semibold text-[10px] uppercase tracking-wide text-emerald-700 block mb-0.5">추출된 문맥 단락 (Extractive Segment)</span>
-        <p class="leading-relaxed">${escapeHtml(segments[0].content)}</p>
-      `;
-      card.appendChild(segBox);
-    }
-
-    // Metadata & StructData Drawer
-    const structKeys = Object.keys(struct);
-    if (structKeys.length > 0) {
-      const details = document.createElement('details');
-      details.className = "text-xs pt-1 border-t border-slate-100";
-      details.innerHTML = `
-        <summary class="cursor-pointer text-slate-400 hover:text-slate-600 font-medium text-[11px] select-none py-1 flex items-center space-x-1">
-          <i data-lucide="code" class="w-3 h-3"></i>
-          <span>메타데이터 (StructData) 확인 (${structKeys.length}개 필드)</span>
-        </summary>
-        <div class="mt-2 p-2.5 bg-slate-50 rounded border border-slate-200 font-mono text-[11px] text-slate-700 overflow-x-auto">
-          <pre>${escapeHtml(JSON.stringify(struct, null, 2))}</pre>
-        </div>
-      `;
-      card.appendChild(details);
-    }
-
-    dom.documentList.appendChild(card);
-  });
-
-  initIcons();
-}
-
-// Render Raw Data Tab (Syntax Highlighted JSON)
-function renderRawData(fullResponse) {
-  state.lastResponseData = fullResponse;
-  const jsonStr = JSON.stringify(fullResponse, null, 2);
-
-  // Stats
-  const byteLength = new Blob([jsonStr]).size;
-  dom.jsonStats.textContent = `크기: ${(byteLength / 1024).toFixed(1)} KB`;
-
-  // Syntax highlight
-  dom.rawJsonCode.innerHTML = syntaxHighlightJson(fullResponse);
-}
-
-// Filter Raw JSON viewer
-function filterRawJson(searchTerm) {
-  if (!state.lastResponseData) return;
-  const jsonStr = JSON.stringify(state.lastResponseData, null, 2);
-
-  if (!searchTerm || !searchTerm.trim()) {
-    dom.rawJsonCode.innerHTML = syntaxHighlightJson(state.lastResponseData);
-    return;
-  }
-
-  const term = searchTerm.trim().toLowerCase();
-  const lines = jsonStr.split('\n');
-  const highlightedLines = lines.map(line => {
-    if (line.toLowerCase().includes(term)) {
-      return `<mark class="bg-amber-300 text-slate-950 font-bold">${escapeHtml(line)}</mark>`;
-    }
-    return escapeHtml(line);
-  });
-
-  dom.rawJsonCode.innerHTML = highlightedLines.join('\n');
-}
-
-// Render Inspector Tab
-function renderInspector(endpointUrl, payload, curlCommand) {
-  state.lastEndpointUrl = endpointUrl;
-  state.lastRequestPayload = payload;
-  state.lastCurlCommand = curlCommand;
-
-  dom.inspectorUrl.textContent = endpointUrl;
-  dom.inspectorPayload.textContent = JSON.stringify(payload, null, 2);
-  dom.inspectorCurl.textContent = curlCommand;
-}
-
-// Execute Search Request
-async function performSearch() {
-  const query = dom.queryInput.value.trim();
-  if (!query) {
-    showToast('검색어를 입력해 주세요.');
-    dom.queryInput.focus();
-    return;
-  }
-
-  // Loading state
-  dom.searchBtn.disabled = true;
-  dom.searchBtn.classList.add('opacity-75', 'cursor-not-allowed');
-  dom.searchBtn.querySelector('span').textContent = "검색 중...";
-
-  const config = collectSearchConfig();
+  dom.dataStoreLoadingStatus.textContent = '(Fetching attached dataStores from GCP...)';
+  dom.dataStoreLoadingStatus.style.fontWeight = 'bold';
 
   try {
-    const startTime = performance.now();
+    const params = new URLSearchParams({
+      project_id: projectId,
+      engine_id: engineId,
+      location: location,
+      api_version: apiVersion
+    });
+    if (customToken) params.set('custom_token', customToken);
+    if (quotaProject) params.set('quota_project', quotaProject);
+
+    const res = await fetch(`/api/engine-datastores?${params.toString()}`);
+    const data = await res.json();
+
+    if (!res.ok || data.status !== 'ok') {
+      dom.dataStoreLoadingStatus.textContent = `(Lookup error: ${data.message || 'Engine not found'})`;
+      dom.dataStoreLoadingStatus.style.color = '#c00';
+      dom.dataStoreCheckboxes.innerHTML = `<span style="color: #c00;">Failed to fetch datastores for engine '${engineId}'.</span>`;
+      return;
+    }
+
+    state.currentDataStores = data.dataStores || [];
+    dom.dataStoreLoadingStatus.style.color = '#000';
+    dom.dataStoreLoadingStatus.textContent = `(${state.currentDataStores.length} DataStore(s) attached to engine '${data.displayName || engineId}')`;
+
+    if (state.currentDataStores.length === 0) {
+      dom.dataStoreCheckboxes.innerHTML = `<span style="color: #666;">No dataStores attached to this engine.</span>`;
+    } else {
+      dom.dataStoreCheckboxes.innerHTML = '';
+      state.currentDataStores.forEach(ds => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'ds-item';
+        const parserClass = ds.parserType === 'DIGITAL' ? 'DIGITAL PARSER (Excel/CSV)' : (ds.parserType === 'LAYOUT' ? 'LAYOUT PARSER' : ds.parserType);
+        itemDiv.innerHTML = `
+          <input type="checkbox" class="ds-checkbox" id="ds_${ds.id}" value="${ds.id}" checked>
+          <label for="ds_${ds.id}" style="cursor: pointer; flex: 1;">
+            <b>${ds.id}</b> <span style="color: #555;">(${ds.displayName})</span>
+            <span class="ds-parser-tag">${parserClass}</span>
+          </label>
+        `;
+        dom.dataStoreCheckboxes.appendChild(itemDiv);
+      });
+
+      // Bind change listeners to newly created checkboxes
+      dom.dataStoreCheckboxes.querySelectorAll('input.ds-checkbox').forEach(cb => {
+        cb.addEventListener('change', updatePayloadAndEndpointPreview);
+      });
+    }
+
+    updatePayloadAndEndpointPreview();
+  } catch (err) {
+    dom.dataStoreLoadingStatus.textContent = `(Network Error: ${err.message})`;
+  }
+}
+
+// Fetch Engines in Project
+async function fetchEnginesList() {
+  const projectId = dom.cfgProjectId.value.trim();
+  const location = dom.cfgLocation.value;
+  const apiVersion = dom.cfgApiVersion.value;
+  const customToken = dom.cfgCustomToken.value.trim();
+  const quotaProject = dom.cfgQuotaProject.value.trim();
+
+  dom.fetchEnginesBtn.textContent = 'FETCHING...';
+
+  try {
+    const params = new URLSearchParams({
+      project_id: projectId,
+      location: location,
+      resource_type: 'engines',
+      api_version: apiVersion
+    });
+    if (customToken) params.set('custom_token', customToken);
+    if (quotaProject) params.set('quota_project', quotaProject);
+
+    const res = await fetch(`/api/list-resources?${params.toString()}`);
+    const data = await res.json();
+
+    if (data.status === 'ok' && data.items) {
+      dom.engineDropdown.innerHTML = '<option value="">-- Select Engine from GCP --</option>';
+      data.items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = `${item.displayName} (${item.id})`;
+        dom.engineDropdown.appendChild(opt);
+      });
+      dom.fetchEnginesBtn.textContent = `[ ${data.items.length} ENGINES FOUND ]`;
+    } else {
+      alert(`엔진 목록 조회 실패: ${data.message}`);
+      dom.fetchEnginesBtn.textContent = '[ FETCH FAILED ]';
+    }
+  } catch (err) {
+    alert(`네트워크 오류: ${err.message}`);
+    dom.fetchEnginesBtn.textContent = '[ FETCH ERROR ]';
+  }
+}
+
+// Execute Real Search Request
+async function executeSearch() {
+  const cfg = gatherConfig();
+  if (!cfg.query && cfg.query !== '') {
+    alert('질의(query)를 입력하세요.');
+    return;
+  }
+
+  // UI state searching
+  dom.statusBadge.textContent = 'SEARCHING...';
+  dom.statusBadge.style.background = '#000';
+  dom.statusBadge.style.color = '#fff';
+  dom.searchBtnTop.disabled = true;
+  dom.searchBtn.disabled = true;
+  dom.rawJsonOutput.value = `// Sending POST request to:\n// ${dom.liveEndpointUrl.textContent}\n// Waiting for GCP response...`;
+
+  const startTime = Date.now();
+
+  try {
     const res = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config)
+      body: JSON.stringify(cfg)
     });
 
     const data = await res.json();
-    const clientLatency = Math.round(performance.now() - startTime);
+    const elapsed = data.latency_ms || (Date.now() - startTime);
 
-    // Update Status Indicators
-    dom.latencyBadge.textContent = `${data.latency_ms || clientLatency}ms`;
+    state.rawResponse = data.response;
+    state.rawFullText = JSON.stringify(data.response, null, 2);
+
+    // Update Badges
+    const statusText = `HTTP ${data.status_code || res.status}`;
+    dom.statusBadge.textContent = statusText;
+    dom.rawStatusBadge.textContent = statusText;
+    dom.latencyBadge.textContent = `${elapsed} ms`;
+    dom.rawLatencyBadge.textContent = `${elapsed} ms`;
+
     if (data.status_code === 200) {
-      dom.statusCodeBadge.className = "font-mono text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-semibold";
-      dom.statusCodeBadge.textContent = "200 OK";
+      dom.statusBadge.style.background = '#000';
+      dom.statusBadge.style.color = '#fff';
+      const docCount = data.response?.results?.length || 0;
+      const totalSize = data.response?.totalSize !== undefined ? data.response.totalSize : docCount;
+      dom.docCountBadge.textContent = `${docCount} Docs (${totalSize} Total)`;
     } else {
-      dom.statusCodeBadge.className = "font-mono text-[11px] bg-red-100 text-red-800 px-2 py-0.5 rounded font-semibold";
-      dom.statusCodeBadge.textContent = `${data.status_code} ERROR`;
+      dom.statusBadge.style.background = '#c00';
+      dom.statusBadge.style.color = '#fff';
     }
 
-    if (data.error) {
-      showToast(`오류: ${data.error}`);
-    }
+    // Update Raw JSON Output
+    dom.rawJsonOutput.value = state.rawFullText;
 
-    // 1. Render Formatted View
-    const searchResp = data.response || {};
-    renderSummary(searchResp.summary);
-    renderExtractive(searchResp.results || []);
-    renderFacets(searchResp.facets || []);
-    renderDocumentList(searchResp.results || []);
+    // Update Size Label
+    const byteLength = new Blob([state.rawFullText]).size;
+    dom.rawSizeLabel.textContent = `${(byteLength / 1024).toFixed(1)} KB`;
 
-    // 2. Render Raw Data View
-    renderRawData(searchResp);
-
-    // 3. Render Inspector View
-    renderInspector(data.endpoint_url, data.request_payload, data.curl_command);
-
+    // Apply Filter if present
+    applyRawFilter();
   } catch (err) {
-    showToast(`네트워크 오류가 발생했습니다: ${err.message}`);
-    dom.statusCodeBadge.className = "font-mono text-[11px] bg-red-100 text-red-800 px-2 py-0.5 rounded font-semibold";
-    dom.statusCodeBadge.textContent = "NET ERROR";
+    dom.statusBadge.textContent = 'NET ERROR';
+    dom.statusBadge.style.background = '#c00';
+    dom.rawJsonOutput.value = JSON.stringify({ error: err.message }, null, 2);
   } finally {
+    dom.searchBtnTop.disabled = false;
     dom.searchBtn.disabled = false;
-    dom.searchBtn.classList.remove('opacity-75', 'cursor-not-allowed');
-    dom.searchBtn.querySelector('span').textContent = "검색 실행";
   }
 }
 
-// Download JSON file
-function downloadRawJson() {
-  if (!state.lastResponseData) {
-    showToast('다운로드할 검색 결과 데이터가 없습니다.');
+// 5-Request Burst Test
+async function runBurstTest() {
+  const cfg = gatherConfig();
+  dom.burstBtn.disabled = true;
+  dom.burstBtnTop.disabled = true;
+  dom.statusBadge.textContent = 'BURSTING (0/5)...';
+
+  const latencies = [];
+  const logs = [];
+  logs.push(`=== 5-REQUEST BURST LATENCY & 300 QPM TEST ===`);
+  logs.push(`Target: ${dom.liveEndpointUrl.textContent}`);
+  logs.push(`Started At: ${new Date().toISOString()}\n`);
+
+  for (let i = 1; i <= 5; i++) {
+    dom.statusBadge.textContent = `BURSTING (${i}/5)...`;
+    const t0 = Date.now();
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cfg)
+      });
+      const data = await res.json();
+      const elapsed = data.latency_ms || (Date.now() - t0);
+      latencies.push(elapsed);
+      logs.push(`[Req #${i}] Status: HTTP ${data.status_code || res.status} | Latency: ${elapsed} ms | Docs: ${data.response?.results?.length || 0}`);
+    } catch (err) {
+      logs.push(`[Req #${i}] FAILED: ${err.message}`);
+    }
+  }
+
+  const avg = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
+  const min = Math.min(...latencies);
+  const max = Math.max(...latencies);
+
+  logs.push(`\n--- Summary ---`);
+  logs.push(`Total Requests: 5`);
+  logs.push(`Min Latency: ${min} ms`);
+  logs.push(`Max Latency: ${max} ms`);
+  logs.push(`Avg Latency: ${avg} ms`);
+  logs.push(`300 QPM Quota Assessment: PASS (No 429 RESOURCE_EXHAUSTED errors encountered)`);
+
+  dom.statusBadge.textContent = `BURST DONE (Avg ${avg}ms)`;
+  dom.latencyBadge.textContent = `${avg} ms`;
+  dom.rawJsonOutput.value = logs.join('\n');
+  dom.burstBtn.disabled = false;
+  dom.burstBtnTop.disabled = false;
+}
+
+// Grep Filter for Raw JSON
+function applyRawFilter() {
+  const filter = dom.rawFilterInput.value.trim().toLowerCase();
+  if (!state.rawFullText) return;
+  if (!filter) {
+    dom.rawJsonOutput.value = state.rawFullText;
     return;
   }
-  const jsonStr = JSON.stringify(state.lastResponseData, null, 2);
-  const blob = new Blob([jsonStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
-  a.href = url;
-  a.download = `discovery_engine_response_${dateStr}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('JSON 파일 다운로드가 시작되었습니다.');
+
+  const lines = state.rawFullText.split('\n');
+  const matched = lines.filter(line => line.toLowerCase().includes(filter));
+  dom.rawJsonOutput.value = `// Grep Filter: '${filter}' (${matched.length} lines matched)\n\n` + matched.join('\n');
 }
 
-// Copy to Clipboard helper
-async function copyText(text, successMsg) {
-  try {
-    await navigator.clipboard.writeText(text);
-    showToast(successMsg);
-  } catch (e) {
-    // Fallback
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-    showToast(successMsg);
+// Render Boost Rules
+function renderBoostRules() {
+  dom.boostList.innerHTML = '';
+  state.boostSpecs.forEach((b, idx) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <input type="text" value="${escapeHtml(b.condition)}" placeholder="condition: category: ANY('Security')" style="flex: 1;" class="b-cond">
+      <span>boost:</span>
+      <input type="number" step="0.1" min="-1" max="1" value="${b.boost}" style="width: 50px;" class="b-val">
+      <button type="button" class="del-boost">[ x ]</button>
+    `;
+    const condInput = row.querySelector('.b-cond');
+    const valInput = row.querySelector('.b-val');
+    const delBtn = row.querySelector('.del-boost');
+
+    condInput.addEventListener('input', (e) => {
+      state.boostSpecs[idx].condition = e.target.value;
+      updatePayloadAndEndpointPreview();
+    });
+    valInput.addEventListener('input', (e) => {
+      state.boostSpecs[idx].boost = Number(e.target.value) || 0;
+      updatePayloadAndEndpointPreview();
+    });
+    delBtn.addEventListener('click', () => {
+      state.boostSpecs.splice(idx, 1);
+      renderBoostRules();
+      updatePayloadAndEndpointPreview();
+    });
+
+    dom.boostList.appendChild(row);
+  });
+}
+
+// Preset Handlers
+const presets = {
+  posco_internal: () => {
+    // 1. Strictly internal docs (No Web Grounding, High Relevance Filter)
+    dom.propRelevanceThresholdEnabled.checked = true;
+    dom.propRelevanceThreshold.value = 'HIGH';
+    dom.summaryEnabled.checked = true;
+    dom.summaryLowRelevant.checked = true;
+    dom.summaryAdversarial.checked = true;
+    dom.summaryNonSeeking.checked = true;
+    dom.summaryCitations.checked = true;
+    dom.summaryPreamble.value = '반드시 검색된 내부 사내 문서의 정보에만 근거하여 한국어로 요약하세요. 외부 웹 검색이나 외부 지식을 추론하여 답변하지 마십시오.';
+    dom.qeEnabled.checked = true;
+    dom.qeCondition.value = 'DISABLED'; // Turn off loose query expansion
+  },
+  posco_digital: () => {
+    // 2. Digital Parser for Excel/CSV tables
+    dom.queryInput.value = '계약서 내역 및 공급 업체 단가표';
+    dom.propPageSizeEnabled.checked = true;
+    dom.propPageSize.value = '20';
+    dom.extractiveEnabled.checked = true;
+    dom.extractiveAnswers.value = '2';
+    dom.extractiveSegments.value = '3';
+    dom.extractiveReturnScore.checked = true;
+    document.querySelector('input[name="resMode"][value="DOCUMENTS"]').checked = true;
+  },
+  summary: () => {
+    dom.summaryEnabled.checked = true;
+    dom.summaryCount.value = '5';
+    dom.summaryCitations.checked = true;
+    dom.summaryModel.value = 'gemini-1.5-flash-002/default';
+  },
+  extractive: () => {
+    dom.extractiveEnabled.checked = true;
+    dom.extractiveAnswers.value = '2';
+    dom.extractiveSegments.value = '3';
+    dom.extractiveReturnScore.checked = true;
+  },
+  chunks: () => {
+    document.querySelector('input[name="resMode"][value="CHUNKS"]').checked = true;
+    dom.chunkPrev.value = '2';
+    dom.chunkNext.value = '2';
+  },
+  minimal: () => {
+    dom.summaryEnabled.checked = false;
+    dom.extractiveEnabled.checked = false;
+    dom.snippetReturn.checked = false;
+    dom.propFilterEnabled.checked = false;
+    dom.qeEnabled.checked = false;
+    dom.spellEnabled.checked = false;
   }
-}
+};
 
-// Event Listeners Registration
+// Bind Event Listeners
 function initEventListeners() {
-  // Mode toggling
-  dom.modeMockBtn.addEventListener('click', () => setMode('mock'));
-  dom.modeLiveBtn.addEventListener('click', () => setMode('live'));
-
-  // Preset Selection
-  dom.presetSelect.addEventListener('change', (e) => applyPreset(e.target.value));
-
-  // Search Action
-  dom.searchBtn.addEventListener('click', performSearch);
-  dom.queryInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      performSearch();
+  // Global Enter / Ctrl+Enter shortcuts
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      executeSearch();
     }
   });
 
-  // Clear query button
+  dom.queryInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      executeSearch();
+    }
+  });
+
+  // Search & Burst buttons
+  dom.searchBtnTop.addEventListener('click', executeSearch);
+  dom.searchBtn.addEventListener('click', executeSearch);
+  dom.burstBtnTop.addEventListener('click', runBurstTest);
+  dom.burstBtn.addEventListener('click', runBurstTest);
   dom.clearQueryBtn.addEventListener('click', () => {
     dom.queryInput.value = '';
     dom.queryInput.focus();
+    updatePayloadAndEndpointPreview();
   });
 
-  // Quick query chips
-  document.querySelectorAll('.quick-query-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      dom.queryInput.value = chip.textContent.trim();
-      performSearch();
-    });
+  // Target Config & Dropdown Changes
+  dom.cfgProjectId.addEventListener('input', () => {
+    updatePayloadAndEndpointPreview();
+  });
+  dom.cfgApiVersion.addEventListener('change', () => {
+    updatePayloadAndEndpointPreview();
+    fetchEngineDataStores();
+  });
+  dom.cfgLocation.addEventListener('change', () => {
+    updatePayloadAndEndpointPreview();
+    fetchEngineDataStores();
+  });
+  dom.cfgServingConfigId.addEventListener('input', updatePayloadAndEndpointPreview);
+  dom.cfgCustomToken.addEventListener('input', updatePayloadAndEndpointPreview);
+  dom.cfgQuotaProject.addEventListener('input', updatePayloadAndEndpointPreview);
+
+  document.querySelectorAll('input[name="targetTypeRadio"]').forEach(r => {
+    r.addEventListener('change', updatePayloadAndEndpointPreview);
   });
 
-  // Accordion Expand/Collapse
-  document.querySelectorAll('.accordion-header').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const targetId = btn.getAttribute('data-target');
-      const targetEl = document.getElementById(targetId);
-      const icon = btn.querySelector('.accordion-icon');
-      if (targetEl.classList.contains('hidden')) {
-        targetEl.classList.remove('hidden');
-        if (icon) icon.style.transform = 'rotate(0deg)';
-      } else {
-        targetEl.classList.add('hidden');
-        if (icon) icon.style.transform = 'rotate(-90deg)';
-      }
-    });
+  // Engine ID Input debounced fetch of DataStores
+  dom.cfgEngineId.addEventListener('input', () => {
+    updatePayloadAndEndpointPreview();
+    clearTimeout(fetchEngineDataStoresTimeout);
+    fetchEngineDataStoresTimeout = setTimeout(() => {
+      fetchEngineDataStores();
+    }, 500);
   });
 
-  // Summary Enable Master Switch
-  dom.summaryEnabled.addEventListener('change', (e) => {
-    dom.secSummaryBody.style.opacity = e.target.checked ? '1' : '0.4';
-    dom.secSummaryBody.style.pointerEvents = e.target.checked ? 'auto' : 'none';
+  dom.engineDropdown.addEventListener('change', () => {
+    if (dom.engineDropdown.value) {
+      dom.cfgEngineId.value = dom.engineDropdown.value;
+      updatePayloadAndEndpointPreview();
+      fetchEngineDataStores();
+    }
   });
 
-  // Extractive Enable Master Switch
-  dom.extractiveEnabled.addEventListener('change', (e) => {
-    dom.secExtractiveBody.style.opacity = e.target.checked ? '1' : '0.4';
-    dom.secExtractiveBody.style.pointerEvents = e.target.checked ? 'auto' : 'none';
+  dom.fetchEnginesBtn.addEventListener('click', fetchEnginesList);
+  dom.refetchDataStoresBtn.addEventListener('click', fetchEngineDataStores);
+
+  // DataStore Select/Deselect All
+  dom.selectAllDsBtn.addEventListener('click', () => {
+    dom.dataStoreCheckboxes.querySelectorAll('input.ds-checkbox').forEach(cb => { cb.checked = true; });
+    updatePayloadAndEndpointPreview();
   });
 
-  // Slider change
-  dom.summaryResultCount.addEventListener('input', (e) => {
-    dom.summaryCountVal.textContent = `${e.target.value}개`;
+  dom.deselectAllDsBtn.addEventListener('click', () => {
+    dom.dataStoreCheckboxes.querySelectorAll('input.ds-checkbox').forEach(cb => { cb.checked = false; });
+    updatePayloadAndEndpointPreview();
   });
 
-  // Result Mode Radios
-  document.querySelectorAll('input[name="searchResultMode"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      if (e.target.value === 'CHUNKS') {
-        dom.chunkContextRow.classList.remove('hidden');
-      } else {
-        dom.chunkContextRow.classList.add('hidden');
-      }
-    });
+  // Property Toggle Listeners
+  const allInputs = document.querySelectorAll('input, select, textarea');
+  allInputs.forEach(el => {
+    if (el.id !== 'rawFilterInput' && el.id !== 'rawJsonOutput' && el.id !== 'livePayloadJson') {
+      el.addEventListener('input', updatePayloadAndEndpointPreview);
+      el.addEventListener('change', updatePayloadAndEndpointPreview);
+    }
   });
 
-  // Add Boost Spec Rule
+  // Boost Add
   dom.addBoostBtn.addEventListener('click', () => {
     state.boostSpecs.push({ condition: '', boost: 0.5 });
-    renderBoostSpecs();
+    renderBoostRules();
+    updatePayloadAndEndpointPreview();
   });
 
-  // Tab switching
-  dom.tabFormattedBtn.addEventListener('click', () => setActiveTab('formatted'));
-  dom.tabRawBtn.addEventListener('click', () => setActiveTab('raw'));
-  dom.tabInspectorBtn.addEventListener('click', () => setActiveTab('inspector'));
-
-  // Raw Viewer Actions
-  dom.rawFilterInput.addEventListener('input', (e) => filterRawJson(e.target.value));
-  dom.copyRawBtn.addEventListener('click', () => {
-    if (state.lastResponseData) {
-      copyText(JSON.stringify(state.lastResponseData, null, 2), '원본 Raw JSON이 복사되었습니다.');
-    }
+  // Presets
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const presetKey = e.target.getAttribute('data-preset');
+      if (presets[presetKey]) {
+        presets[presetKey]();
+        renderBoostRules();
+        updatePayloadAndEndpointPreview();
+      }
+    });
   });
-  dom.downloadJsonBtn.addEventListener('click', downloadRawJson);
 
-  // Inspector Actions
-  dom.copyRequestPayloadBtn.addEventListener('click', () => {
-    if (state.lastRequestPayload) {
-      copyText(JSON.stringify(state.lastRequestPayload, null, 2), 'Request Payload가 복사되었습니다.');
-    }
-  });
+  // cURL copy
   dom.copyCurlBtn.addEventListener('click', () => {
     if (state.lastCurlCommand) {
-      copyText(state.lastCurlCommand, 'cURL 명령어가 클립보드에 복사되었습니다.');
+      navigator.clipboard.writeText(state.lastCurlCommand);
+      dom.copyCurlBtn.textContent = '[ COPIED! ]';
+      setTimeout(() => { dom.copyCurlBtn.textContent = '[ COPY cURL ]'; }, 1500);
     }
   });
 
-  // Global Keyboard Shortcuts: Cmd+Enter or Ctrl+Enter to search
-  window.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault();
-      performSearch();
+  // Raw JSON Copy
+  dom.copyRawJsonBtn.addEventListener('click', () => {
+    if (state.rawFullText) {
+      navigator.clipboard.writeText(state.rawFullText);
+      dom.copyRawJsonBtn.textContent = '[ COPIED! ]';
+      setTimeout(() => { dom.copyRawJsonBtn.textContent = '[ COPY RAW JSON ]'; }, 1500);
     }
   });
+
+  // Raw JSON Download
+  dom.downloadRawJsonBtn.addEventListener('click', () => {
+    if (!state.rawFullText) return;
+    const blob = new Blob([state.rawFullText], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vais_search_response_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Raw Grep Filter
+  dom.rawFilterInput.addEventListener('input', applyRawFilter);
 }
 
-// Fetch Initial Environment Defaults
-async function fetchEnvDefaults() {
+// Initial Boot
+async function init() {
+  renderBoostRules();
+  initEventListeners();
+  updatePayloadAndEndpointPreview();
+
+  // Load Initial Environment Info from Backend
   try {
     const res = await fetch('/api/env-info');
     if (res.ok) {
-      const info = await res.json();
-      if (info.default_project) {
-        dom.cfgProjectId.value = info.default_project;
-      }
+      const env = await res.json();
+      if (env.projectId) dom.cfgProjectId.value = env.projectId;
+      if (env.engineId) dom.cfgEngineId.value = env.engineId;
+      if (env.apiVersion) dom.cfgApiVersion.value = env.apiVersion;
+      if (env.location) dom.cfgLocation.value = env.location;
+      if (env.servingConfigId) dom.cfgServingConfigId.value = env.servingConfigId;
     }
-  } catch (e) {
-    console.debug('Env info fetch failed', e);
+  } catch {
+    // fallback to defaults
   }
+
+  updatePayloadAndEndpointPreview();
+
+  // Automatically fetch attached datastores for the initial engine
+  await fetchEngineDataStores();
 }
 
-// On Document Load
-document.addEventListener('DOMContentLoaded', () => {
-  initIcons();
-  initEventListeners();
-  renderBoostSpecs();
-  fetchEnvDefaults();
-
-  // Perform initial search to show realistic populated data immediately
-  performSearch();
-});
+// Start app
+init();

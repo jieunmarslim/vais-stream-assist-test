@@ -3,669 +3,370 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gemini Enterprise / Vertex AI Search Parameter Playground</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
-  <!-- Custom Styles -->
+  <title>VAIS / Gemini Enterprise Search API Testbed</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-900 flex flex-col">
+<body>
 
-  <!-- Top Navigation Header -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-100">
-          <i data-lucide="sparkles" class="w-5 h-5"></i>
-        </div>
-        <div>
-          <div class="flex items-center space-x-2">
-            <h1 class="font-bold text-lg text-slate-800 leading-tight">Gemini Enterprise</h1>
-            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">Search API Tester</span>
-          </div>
-          <p class="text-xs text-slate-500">Discovery Engine 파라미터 튜닝 & 원본 데이터(Raw JSON) 검증기</p>
-        </div>
-      </div>
-
-      <!-- Presets & Mode Controls -->
-      <div class="flex items-center space-x-3">
-        <!-- Preset Dropdown -->
-        <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs">
-          <i data-lucide="sliders" class="w-3.5 h-3.5 text-slate-500"></i>
-          <span class="text-slate-500 font-medium">프리셋:</span>
-          <select id="presetSelect" class="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer">
-            <option value="summary">🌟 Gemini 요약 중심 (기본값)</option>
-            <option value="extractive">💡 직접 질의응답 (Extractive QA)</option>
-            <option value="chunk">🧩 청크 단위 검색 (RAG Chunks)</option>
-            <option value="facet_boost">🎯 패싯 & 부스트 가중치</option>
-            <option value="minimal">⚡ 최소 파라미터 (Raw Docs)</option>
-          </select>
-        </div>
-
-        <!-- Mode Toggle (Mock vs Live) -->
-        <div class="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-          <button id="modeMockBtn" class="px-2.5 py-1 rounded text-xs font-semibold transition-all bg-white text-indigo-600 shadow-sm">
-            시뮬레이터 (Mock)
-          </button>
-          <button id="modeLiveBtn" class="px-2.5 py-1 rounded text-xs font-medium text-slate-600 transition-all hover:text-slate-900">
-            실제 GCP API (Live)
-          </button>
-        </div>
-
-        <!-- Run Search Button -->
-        <button id="searchBtn" class="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium text-sm shadow-sm transition active:scale-95">
-          <i data-lucide="search" class="w-4 h-4"></i>
-          <span>검색 실행</span>
-          <kbd class="hidden sm:inline-block bg-indigo-800 text-indigo-200 text-[10px] px-1.5 py-0.5 rounded ml-1">⌘↵</kbd>
-        </button>
-      </div>
+  <!-- Top Title & Global Controls -->
+  <div class="flex-between" style="border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px;">
+    <div>
+      <h1>VAIS / Gemini Enterprise Search API Parameter Testbed</h1>
+      <div style="font-size: 11px; font-weight: bold;">Google Cloud Discovery Engine API Debugger | Raw Request Builder & Raw Response Inspector</div>
     </div>
-  </header>
-
-  <!-- Main Content Layout -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex-1 flex flex-col w-full">
-
-    <!-- Search Query Bar -->
-    <section class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 mb-5">
-      <div class="relative flex items-center">
-        <div class="absolute left-4 text-slate-400">
-          <i data-lucide="search" class="w-5 h-5"></i>
-        </div>
-        <input 
-          type="text" 
-          id="queryInput" 
-          placeholder="검색할 질의를 입력하세요 (예: Gemini Enterprise 아키텍처 및 보안 정책 가이드라인)"
-          value="Gemini Enterprise 도입 가이드 및 주요 보안 정책" 
-          class="w-full pl-11 pr-24 py-3 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 text-base placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
-        />
-        <button id="clearQueryBtn" class="absolute right-3 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-200 transition">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <!-- Quick Query Suggestions -->
-      <div class="mt-3 flex items-center space-x-2 text-xs text-slate-500 overflow-x-auto pb-1">
-        <span class="font-medium whitespace-nowrap text-slate-400 flex items-center">
-          <i data-lucide="lightbulb" class="w-3.5 h-3.5 mr-1 text-amber-500"></i>추천 질의:
-        </span>
-        <button class="quick-query-chip bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1 rounded-full whitespace-nowrap border border-slate-200 transition">
-          Gemini Enterprise 도입 가이드 및 주요 보안 정책
-        </button>
-        <button class="quick-query-chip bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1 rounded-full whitespace-nowrap border border-slate-200 transition">
-          사내 정보보호 규정 및 임직원 권한 관리
-        </button>
-        <button class="quick-query-chip bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1 rounded-full whitespace-nowrap border border-slate-200 transition">
-          Vertex AI Search REST API 연동 명세
-        </button>
-        <button class="quick-query-chip bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1 rounded-full whitespace-nowrap border border-slate-200 transition">
-          2024년 데이터 수명주기 및 컴플라이언스 기준
-        </button>
-      </div>
-    </section>
-
-    <!-- Two Column Workspace: Controls (Left) & Results/Raw (Right) -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-
-      <!-- LEFT COLUMN: Parameter Controls (Width 5 cols on lg) -->
-      <aside class="lg:col-span-5 space-y-4">
-
-        <!-- Live Mode Settings Banner (Shown only when Live mode is active) -->
-        <div id="liveAuthBanner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900">
-          <div class="flex items-start space-x-2">
-            <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0"></i>
-            <div>
-              <p class="font-semibold">실제 GCP API 호출 모드</p>
-              <p class="text-amber-700 mt-0.5">로컬 gcloud ADC 또는 아래의 Custom Bearer Token을 사용하여 Google Cloud Discovery Engine API를 직접 호출합니다.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Section 1: GCP Resource & Auth -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <button class="accordion-header w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between font-semibold text-xs text-slate-700 transition" data-target="secResource">
-            <div class="flex items-center space-x-2">
-              <i data-lucide="cloud" class="w-4 h-4 text-indigo-600"></i>
-              <span>GCP 대상 리소스 & 인증 (Target & Auth)</span>
-            </div>
-            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 accordion-icon transition-transform"></i>
-          </button>
-          <div id="secResource" class="p-4 space-y-3 text-xs border-t border-slate-100">
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">Project ID</label>
-                <input type="text" id="cfgProjectId" value="gauravan-llm" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs focus:ring-1 focus:ring-indigo-500">
-              </div>
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">Location</label>
-                <select id="cfgLocation" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs focus:ring-1 focus:ring-indigo-500">
-                  <option value="global" selected>global</option>
-                  <option value="us">us</option>
-                  <option value="eu">eu</option>
-                  <option value="asia-northeast3">asia-northeast3 (서울)</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">Resource Type</label>
-                <select id="cfgResourceType" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-indigo-500">
-                  <option value="dataStores" selected>Data Store (dataStores)</option>
-                  <option value="engines">Search App (engines)</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">Data Store / Engine ID</label>
-                <input type="text" id="cfgResourceId" value="sample-datastore" placeholder="데이터스토어 ID" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs focus:ring-1 focus:ring-indigo-500">
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">Serving Config ID</label>
-                <input type="text" id="cfgServingConfigId" value="default_search" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs">
-              </div>
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">API Version</label>
-                <select id="cfgApiVersion" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs font-mono">
-                  <option value="v1alpha" selected>v1alpha (최신 기능 포함)</option>
-                  <option value="v1beta">v1beta</option>
-                  <option value="v1">v1 (GA)</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-slate-600 font-medium mb-1">Custom Bearer Token (선택사항, 입력시 ADC 대체)</label>
-              <input type="password" id="cfgCustomToken" placeholder="ya29.a0..." class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs placeholder-slate-400">
-            </div>
-
-            <div>
-              <label class="block text-slate-600 font-medium mb-1">Quota Project (X-Goog-User-Project)</label>
-              <input type="text" id="cfgQuotaProject" placeholder="기본값: Project ID와 동일" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs placeholder-slate-400">
-            </div>
-          </div>
-        </div>
-
-        <!-- Section 2: Gemini Grounded Summary Spec (summarySpec) -->
-        <div class="bg-white rounded-xl border border-indigo-200 shadow-sm overflow-hidden">
-          <div class="px-4 py-3 bg-gradient-to-r from-indigo-50 via-purple-50 to-white flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-              <i data-lucide="sparkles" class="w-4 h-4 text-purple-600"></i>
-              <span class="font-bold text-xs text-indigo-950">Gemini 요약 스펙 (summarySpec)</span>
-            </div>
-            <!-- Master Toggle -->
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="summaryEnabled" checked class="sr-only peer">
-              <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-            </label>
-          </div>
-
-          <div id="secSummaryBody" class="p-4 space-y-3.5 text-xs border-t border-slate-100">
-            <!-- Slider: summaryResultCount -->
-            <div>
-              <div class="flex justify-between items-center mb-1">
-                <span class="text-slate-600 font-medium">요약 참조 문서 수 (summaryResultCount)</span>
-                <span id="summaryCountVal" class="font-bold text-indigo-600">3개</span>
-              </div>
-              <input type="range" id="summaryResultCount" min="1" max="10" value="3" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
-              <p class="text-[11px] text-slate-400 mt-0.5">Gemini가 요약 답변 생성에 참조할 상위 검색 결과 문서 개수</p>
-            </div>
-
-            <!-- Toggles Grid -->
-            <div class="grid grid-cols-2 gap-2.5 pt-1">
-              <label class="flex items-center space-x-2 p-2 rounded-lg bg-slate-50 border border-slate-100 cursor-pointer hover:bg-slate-100 transition">
-                <input type="checkbox" id="summaryIncludeCitations" checked class="rounded text-indigo-600 focus:ring-indigo-500">
-                <span class="font-medium text-slate-700">인용 출처 포함<br><span class="text-[10px] text-slate-400 font-normal">includeCitations</span></span>
-              </label>
-
-              <label class="flex items-center space-x-2 p-2 rounded-lg bg-slate-50 border border-slate-100 cursor-pointer hover:bg-slate-100 transition">
-                <input type="checkbox" id="summaryPrunedSummary" class="rounded text-indigo-600 focus:ring-indigo-500">
-                <span class="font-medium text-slate-700">정제된 요약<br><span class="text-[10px] text-slate-400 font-normal">generatePrunedSummary</span></span>
-              </label>
-
-              <label class="flex items-center space-x-2 p-2 rounded-lg bg-slate-50 border border-slate-100 cursor-pointer hover:bg-slate-100 transition">
-                <input type="checkbox" id="summaryIgnoreAdversarial" checked class="rounded text-indigo-600 focus:ring-indigo-500">
-                <span class="font-medium text-slate-700">적대적 질의 무시<br><span class="text-[10px] text-slate-400 font-normal">ignoreAdversarialQuery</span></span>
-              </label>
-
-              <label class="flex items-center space-x-2 p-2 rounded-lg bg-slate-50 border border-slate-100 cursor-pointer hover:bg-slate-100 transition">
-                <input type="checkbox" id="summaryIgnoreNonSeeking" checked class="rounded text-indigo-600 focus:ring-indigo-500">
-                <span class="font-medium text-slate-700">비요약 질의 무시<br><span class="text-[10px] text-slate-400 font-normal">ignoreNonSummarySeeking</span></span>
-              </label>
-
-              <label class="flex items-center space-x-2 p-2 rounded-lg bg-slate-50 border border-slate-100 cursor-pointer hover:bg-slate-100 transition">
-                <input type="checkbox" id="summaryIgnoreLowRelevant" checked class="rounded text-indigo-600 focus:ring-indigo-500">
-                <span class="font-medium text-slate-700">낮은 연관성 무시<br><span class="text-[10px] text-slate-400 font-normal">ignoreLowRelevantContent</span></span>
-              </label>
-
-              <label class="flex items-center space-x-2 p-2 rounded-lg bg-slate-50 border border-slate-100 cursor-pointer hover:bg-slate-100 transition">
-                <input type="checkbox" id="summarySemanticChunks" class="rounded text-indigo-600 focus:ring-indigo-500">
-                <span class="font-medium text-slate-700">시맨틱 청크 활용<br><span class="text-[10px] text-slate-400 font-normal">useSemanticChunks</span></span>
-              </label>
-            </div>
-
-            <!-- Language & Model Spec -->
-            <div class="grid grid-cols-2 gap-3 pt-1">
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">Language Code</label>
-                <select id="summaryLanguageCode" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs">
-                  <option value="ko" selected>한국어 (ko)</option>
-                  <option value="en">영어 (en)</option>
-                  <option value="ja">일본어 (ja)</option>
-                  <option value="">자동 감지 (Auto)</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">Gemini Model Version</label>
-                <select id="summaryModelVersion" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs font-mono">
-                  <option value="gemini-1.5-flash-002/default" selected>gemini-1.5-flash-002</option>
-                  <option value="gemini-1.5-pro-002/default">gemini-1.5-pro-002</option>
-                  <option value="preview">preview</option>
-                  <option value="default">default</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Model Prompt Preamble -->
-            <div>
-              <label class="block text-slate-600 font-medium mb-1">System Preamble (요약 프롬프트 지침)</label>
-              <textarea id="summaryPreamble" rows="2" class="w-full p-2 bg-slate-50 border border-slate-200 rounded text-xs focus:ring-1 focus:ring-indigo-500" placeholder="모델의 답변 스타일 또는 제약사항 (예: 한국어로 친절하게 글머리기호로 답변)">답변은 신뢰할 수 있는 정보를 바탕으로 한국어로 공손하고 명확하게 요약해 주세요.</textarea>
-            </div>
-          </div>
-        </div>
-
-        <!-- Section 3: Extractive QA Content Spec -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div class="px-4 py-3 bg-slate-50 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-              <i data-lucide="message-square" class="w-4 h-4 text-emerald-600"></i>
-              <span class="font-bold text-xs text-slate-800">추출형 질의응답 (extractiveContentSpec)</span>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="extractiveEnabled" checked class="sr-only peer">
-              <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-            </label>
-          </div>
-
-          <div id="secExtractiveBody" class="p-4 space-y-3 text-xs border-t border-slate-100">
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">최대 직접 답변 수 (Answer Count)</label>
-                <select id="extractiveAnswerCount" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs">
-                  <option value="0">0 (비활성화)</option>
-                  <option value="1" selected>1개 (권장)</option>
-                  <option value="2">2개</option>
-                  <option value="5">5개</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">최대 관련 단락 수 (Segment Count)</label>
-                <select id="extractiveSegmentCount" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs">
-                  <option value="0">0</option>
-                  <option value="1" selected>1개</option>
-                  <option value="2">2개</option>
-                  <option value="3">3개</option>
-                  <option value="5">5개</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-3 gap-2 pt-1">
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">이전 단락 (Prev)</label>
-                <input type="number" id="extractivePrevSegments" min="0" max="3" value="0" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-center">
-              </div>
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">다음 단락 (Next)</label>
-                <input type="number" id="extractiveNextSegments" min="0" max="3" value="0" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-center">
-              </div>
-              <div class="flex items-end">
-                <label class="flex items-center space-x-1.5 py-1.5 cursor-pointer">
-                  <input type="checkbox" id="extractiveReturnScore" checked class="rounded text-emerald-600">
-                  <span class="text-[11px] text-slate-700 font-medium">연관도 점수</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Section 4: Snippets & Search Mode -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <button class="accordion-header w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between font-semibold text-xs text-slate-700 transition" data-target="secSnippet">
-            <div class="flex items-center space-x-2">
-              <i data-lucide="file-text" class="w-4 h-4 text-blue-600"></i>
-              <span>스니펫 & 검색 모드 (Snippet & Mode)</span>
-            </div>
-            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 accordion-icon transition-transform"></i>
-          </button>
-          <div id="secSnippet" class="p-4 space-y-3 text-xs border-t border-slate-100">
-            <div class="flex items-center justify-between">
-              <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="checkbox" id="snippetReturnSnippet" checked class="rounded text-indigo-600">
-                <span class="font-medium text-slate-700">스니펫 반환 (returnSnippet)</span>
-              </label>
-              <div class="flex items-center space-x-1.5">
-                <span class="text-slate-500">최대 스니펫 수:</span>
-                <input type="number" id="snippetMaxCount" min="1" max="5" value="2" class="w-12 px-1.5 py-1 bg-slate-50 border border-slate-200 rounded text-center font-mono text-xs">
-              </div>
-            </div>
-
-            <div class="pt-2 border-t border-slate-100">
-              <label class="block text-slate-600 font-medium mb-1">검색 단위 모드 (searchResultMode)</label>
-              <div class="grid grid-cols-2 gap-2">
-                <label class="flex items-center space-x-2 p-2 rounded bg-slate-50 border border-slate-200 cursor-pointer">
-                  <input type="radio" name="searchResultMode" value="DOCUMENTS" checked class="text-indigo-600">
-                  <span class="font-medium text-slate-700">DOCUMENTS (문서)</span>
-                </label>
-                <label class="flex items-center space-x-2 p-2 rounded bg-slate-50 border border-slate-200 cursor-pointer">
-                  <input type="radio" name="searchResultMode" value="CHUNKS" class="text-indigo-600">
-                  <span class="font-medium text-slate-700">CHUNKS (청크 RAG)</span>
-                </label>
-              </div>
-            </div>
-
-            <div id="chunkContextRow" class="hidden grid grid-cols-2 gap-3 pt-1">
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">이전 청크 개수</label>
-                <input type="number" id="chunkPrev" min="0" max="3" value="1" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-center font-mono">
-              </div>
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">다음 청크 개수</label>
-                <input type="number" id="chunkNext" min="0" max="3" value="1" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-center font-mono">
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Section 5: Query Understanding & Expansion -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <button class="accordion-header w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between font-semibold text-xs text-slate-700 transition" data-target="secQueryUnd">
-            <div class="flex items-center space-x-2">
-              <i data-lucide="brain-circuit" class="w-4 h-4 text-violet-600"></i>
-              <span>쿼리 이해 & 보정 (Query Understanding)</span>
-            </div>
-            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 accordion-icon transition-transform"></i>
-          </button>
-          <div id="secQueryUnd" class="p-4 space-y-3 text-xs border-t border-slate-100">
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">Query Expansion</label>
-                <select id="qeCondition" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs font-mono">
-                  <option value="AUTO" selected>AUTO (자동 확장)</option>
-                  <option value="DISABLED">DISABLED (비활성화)</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">Spell Correction</label>
-                <select id="spellCorrection" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs font-mono">
-                  <option value="AUTO" selected>AUTO (자동 교정)</option>
-                  <option value="SUGGESTION_ONLY">SUGGESTION_ONLY (제안)</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="flex items-center space-x-2">
-              <input type="checkbox" id="qePinUnexpanded" class="rounded text-indigo-600">
-              <span class="text-slate-700">미확장 원본 결과 상단 고정 (pinUnexpandedResults)</span>
-            </div>
-
-            <div class="pt-1 border-t border-slate-100">
-              <label class="block text-slate-600 font-medium mb-1">자연어 필터 추출 (NL Filter Extraction)</label>
-              <select id="nlFilterExtraction" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs font-mono">
-                <option value="DISABLED" selected>DISABLED (비활성화)</option>
-                <option value="ENABLED">ENABLED (자연어 질의에서 필터 자동 추출)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Section 6: Filters, Boost & Facets -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <button class="accordion-header w-full px-4 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between font-semibold text-xs text-slate-700 transition" data-target="secFilterBoost">
-            <div class="flex items-center space-x-2">
-              <i data-lucide="filter" class="w-4 h-4 text-cyan-600"></i>
-              <span>필터, 부스트 & 패싯 (Filter & Boost)</span>
-            </div>
-            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 accordion-icon transition-transform"></i>
-          </button>
-          <div id="secFilterBoost" class="p-4 space-y-3 text-xs border-t border-slate-100">
-            <div>
-              <div class="flex justify-between items-center mb-1">
-                <label class="text-slate-600 font-medium">Filter Expression</label>
-                <span class="text-[10px] text-slate-400 font-mono">category: ANY("Security")</span>
-              </div>
-              <input type="text" id="cfgFilter" placeholder='예: category: ANY("Architecture", "Security")' class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs">
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">Order By</label>
-                <input type="text" id="cfgOrderBy" placeholder='예: lastUpdated desc' class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs">
-              </div>
-              <div>
-                <label class="block text-slate-600 font-medium mb-1">Page Size (페이지 크기)</label>
-                <input type="number" id="cfgPageSize" min="1" max="100" value="10" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs">
-              </div>
-            </div>
-
-            <!-- Boost Specs -->
-            <div class="pt-2 border-t border-slate-100">
-              <div class="flex justify-between items-center mb-1.5">
-                <span class="font-medium text-slate-700">부스트 가중치 (boostSpec)</span>
-                <button id="addBoostBtn" class="text-indigo-600 hover:text-indigo-800 text-[11px] font-semibold flex items-center space-x-1">
-                  <i data-lucide="plus" class="w-3 h-3"></i>
-                  <span>규칙 추가</span>
-                </button>
-              </div>
-              <div id="boostList" class="space-y-2">
-                <!-- Boost rules dynamically added here -->
-              </div>
-            </div>
-
-            <!-- Facet Specs -->
-            <div class="pt-2 border-t border-slate-100">
-              <label class="block text-slate-600 font-medium mb-1">패싯 집계 키 (facetSpecs - 쉼표로 구분)</label>
-              <input type="text" id="cfgFacets" value="category, author" placeholder="category, author, file_type" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs">
-            </div>
-          </div>
-        </div>
-
-      </aside>
-
-      <!-- RIGHT COLUMN: Results, Raw JSON & Inspector (Width 7 cols on lg) -->
-      <section class="lg:col-span-7 space-y-4">
-
-        <!-- Tab Controls Header -->
-        <div class="bg-white rounded-xl border border-slate-200 p-2 shadow-sm flex items-center justify-between">
-          <div class="flex items-center space-x-1">
-            <button id="tabFormattedBtn" class="tab-btn active px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 transition">
-              <i data-lucide="layout-list" class="w-3.5 h-3.5"></i>
-              <span>시각적 검색 결과</span>
-            </button>
-            <button id="tabRawBtn" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition flex items-center space-x-1.5">
-              <i data-lucide="code-2" class="w-3.5 h-3.5"></i>
-              <span>원본 데이터 (Raw JSON)</span>
-              <span id="rawBadge" class="bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.2 rounded font-mono">READY</span>
-            </button>
-            <button id="tabInspectorBtn" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition flex items-center space-x-1.5">
-              <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
-              <span>요청 명세 & cURL</span>
-            </button>
-          </div>
-
-          <!-- Latency & Status Indicator -->
-          <div id="statusIndicator" class="flex items-center space-x-2 text-xs text-slate-500 pr-2">
-            <span id="latencyBadge" class="font-mono text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded">0ms</span>
-            <span id="statusCodeBadge" class="font-mono text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-semibold">200 OK</span>
-          </div>
-        </div>
-
-        <!-- TAB 1: Formatted Results View -->
-        <div id="tabFormattedContent" class="space-y-4">
-
-          <!-- Grounded Gemini Summary Box -->
-          <div id="summaryCard" class="bg-white rounded-xl border border-indigo-200 shadow-sm overflow-hidden">
-            <div class="gemini-card-header px-4 py-3 border-b border-indigo-100 flex items-center justify-between">
-              <div class="flex items-center space-x-2">
-                <div class="w-6 h-6 rounded-md bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white">
-                  <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-                </div>
-                <h3 class="font-bold text-sm text-slate-900 flex items-center space-x-2">
-                  <span>Gemini Grounded Summary</span>
-                  <span class="text-[10px] bg-indigo-100 text-indigo-800 font-semibold px-2 py-0.5 rounded-full border border-indigo-200">생성형 요약</span>
-                </h3>
-              </div>
-              <span id="summaryModelBadge" class="font-mono text-[11px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">gemini-1.5-flash</span>
-            </div>
-            <div class="p-5">
-              <div id="summaryText" class="text-sm text-slate-700 leading-relaxed space-y-2 prose max-w-none">
-                <!-- Summary content rendered here -->
-              </div>
-
-              <!-- Source References List -->
-              <div id="summaryReferences" class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-2 items-center text-xs text-slate-500">
-                <span class="font-medium text-slate-400 mr-1 flex items-center">
-                  <i data-lucide="bookmark" class="w-3.5 h-3.5 mr-1"></i>참조 문서:
-                </span>
-                <!-- Reference source chips dynamically inserted here -->
-              </div>
-            </div>
-          </div>
-
-          <!-- Direct Extractive Answers (If available) -->
-          <div id="extractiveCard" class="bg-white rounded-xl border border-emerald-200 shadow-sm p-4">
-            <div class="flex items-center space-x-2 text-emerald-800 mb-2 font-bold text-xs">
-              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
-              <span>추출형 직접 답변 (Extractive Answer)</span>
-            </div>
-            <div id="extractiveAnswerText" class="p-3 bg-emerald-50/70 border border-emerald-100 rounded-lg text-xs text-emerald-950 font-medium leading-relaxed">
-              <!-- Extractive answer rendered here -->
-            </div>
-          </div>
-
-          <!-- Facets Summary Chips (If any) -->
-          <div id="facetsCard" class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-xs">
-            <div class="flex items-center space-x-1.5 font-bold text-slate-700 mb-2.5">
-              <i data-lucide="tags" class="w-4 h-4 text-indigo-600"></i>
-              <span>패싯 카운트 (Facets)</span>
-            </div>
-            <div id="facetsContainer" class="flex flex-wrap gap-2">
-              <!-- Facet chips rendered here -->
-            </div>
-          </div>
-
-          <!-- Search Results List -->
-          <div class="space-y-3">
-            <div class="flex items-center justify-between text-xs text-slate-500 px-1">
-              <span id="resultsCountText" class="font-semibold text-slate-700">검색된 문서 (5개)</span>
-              <span class="text-slate-400">Vertex AI Search 인덱스 검색 결과</span>
-            </div>
-
-            <!-- List Container -->
-            <div id="documentList" class="space-y-3">
-              <!-- Dynamic Document Cards -->
-            </div>
-          </div>
-
-        </div>
-
-        <!-- TAB 2: Raw Data (JSON) Viewer - EXPLICIT USER REQUIREMENT -->
-        <div id="tabRawContent" class="hidden space-y-3">
-          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-3">
-            <!-- Raw JSON Controls Toolbar -->
-            <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-slate-200">
-              <div class="flex items-center space-x-2">
-                <div class="relative">
-                  <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2"></i>
-                  <input type="text" id="rawFilterInput" placeholder="JSON 키/값 검색..." class="pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded text-xs font-mono focus:ring-1 focus:ring-indigo-500 w-48">
-                </div>
-                <span id="jsonStats" class="text-[11px] font-mono text-slate-500">크기: 4.2 KB</span>
-              </div>
-
-              <div class="flex items-center space-x-2">
-                <!-- Copy Button -->
-                <button id="copyRawBtn" class="flex items-center space-x-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-medium transition active:scale-95">
-                  <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-                  <span id="copyRawText">전체 복사 (Copy)</span>
-                </button>
-
-                <!-- Download JSON File Button -->
-                <button id="downloadJsonBtn" class="flex items-center space-x-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium transition shadow-sm active:scale-95">
-                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
-                  <span>JSON 파일 다운로드</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Code Display Area -->
-            <div class="relative bg-slate-950 rounded-lg p-4 overflow-x-auto max-h-[620px] font-mono text-xs text-slate-200 leading-relaxed shadow-inner">
-              <pre><code id="rawJsonCode" class="block whitespace-pre">로딩 중...</code></pre>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 3: Request Inspector & cURL View -->
-        <div id="tabInspectorContent" class="hidden space-y-4">
-          <!-- Endpoint Card -->
-          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-xs">
-            <h4 class="font-bold text-slate-800 mb-1.5 flex items-center space-x-1.5">
-              <i data-lucide="globe" class="w-4 h-4 text-blue-600"></i>
-              <span>호출 대상 API 엔드포인트 URL</span>
-            </h4>
-            <div class="p-2.5 bg-slate-50 border border-slate-200 rounded font-mono text-indigo-700 break-all select-all" id="inspectorUrl">
-              https://discoveryengine.googleapis.com/v1alpha/projects/...
-            </div>
-          </div>
-
-          <!-- Request Body Card -->
-          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-xs">
-            <div class="flex items-center justify-between mb-2">
-              <h4 class="font-bold text-slate-800 flex items-center space-x-1.5">
-                <i data-lucide="file-json" class="w-4 h-4 text-purple-600"></i>
-                <span>생성된 Request Payload (JSON)</span>
-              </h4>
-              <button id="copyRequestPayloadBtn" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium flex items-center space-x-1">
-                <i data-lucide="copy" class="w-3 h-3"></i>
-                <span>페이로드 복사</span>
-              </button>
-            </div>
-            <pre class="bg-slate-900 text-slate-200 p-3 rounded-lg max-h-72 overflow-y-auto font-mono text-[11px] leading-relaxed"><code id="inspectorPayload">{}</code></pre>
-          </div>
-
-          <!-- cURL Command Card -->
-          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 text-xs">
-            <div class="flex items-center justify-between mb-2">
-              <h4 class="font-bold text-slate-800 flex items-center space-x-1.5">
-                <i data-lucide="terminal" class="w-4 h-4 text-emerald-600"></i>
-                <span>재현용 cURL 명령어</span>
-              </h4>
-              <button id="copyCurlBtn" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium flex items-center space-x-1">
-                <i data-lucide="copy" class="w-3 h-3"></i>
-                <span>cURL 복사</span>
-              </button>
-            </div>
-            <pre class="bg-slate-900 text-emerald-400 p-3 rounded-lg max-h-72 overflow-y-auto font-mono text-[11px] leading-relaxed select-all"><code id="inspectorCurl">curl ...</code></pre>
-          </div>
-        </div>
-
-      </section>
-
-    </div>
-  </main>
-
-  <!-- Notification Toast -->
-  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
-    <div class="bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-lg shadow-lg flex items-center space-x-2">
-      <i data-lucide="check" class="w-4 h-4 text-emerald-400"></i>
-      <span id="toastMessage">클립보드에 복사되었습니다.</span>
+    <div class="row">
+      <span id="statusBadge" class="badge">READY</span>
+      <span id="latencyBadge" class="badge">0 ms</span>
+      <span id="docCountBadge" class="badge">0 Docs</span>
+      <button id="searchBtnTop" class="btn-black" style="padding: 5px 14px;">[ SEND REQUEST (Enter) ]</button>
+      <button id="burstBtnTop" style="padding: 5px 10px;">[ 5-REQ BURST ]</button>
     </div>
   </div>
 
-  <!-- App Script -->
-  <script src="/static/app.js"></script>
+  <!-- 1. OUTGOING HTTP REQUEST INSPECTOR (ALWAYS VISIBLE) -->
+  <div class="endpoint-box">
+    <div class="flex-between" style="margin-bottom: 4px; border-bottom: 1px solid #000; padding-bottom: 3px;">
+      <b>[OUTGOING HTTP REQUEST INSPECTOR]</b>
+      <span style="font-size: 10px;">Updates live on every parameter toggle and keystroke</span>
+    </div>
+    <div style="margin-bottom: 3px;">
+      <b>METHOD:</b> <code>POST</code>
+    </div>
+    <div style="margin-bottom: 3px;">
+      <b>URL:</b> <code id="liveEndpointUrl">https://discoveryengine.googleapis.com/v1alpha/projects/agentspace-test-469511/locations/global/collections/default_collection/engines/gemini-enhanced-parser-tes_1775720801989/servingConfigs/default_search:search</code>
+    </div>
+    <div style="margin-bottom: 6px;">
+      <b>HEADERS:</b> <code id="liveHeadersUrl">Authorization: Bearer [gcloud ADC] | X-Goog-User-Project: agentspace-test-469511 | Content-Type: application/json</code>
+    </div>
+
+    <!-- Live Request Payload vs Live cURL -->
+    <div class="grid-2">
+      <div>
+        <div class="flex-between" style="margin-bottom: 2px;">
+          <b>[LIVE OUTGOING REQUEST PAYLOAD (JSON)]:</b>
+          <span style="font-size: 10px; color: #555;">Exact body sent to GCP API</span>
+        </div>
+        <textarea id="livePayloadJson" readonly spellcheck="false" class="payload-preview-textarea"></textarea>
+      </div>
+      <div>
+        <div class="flex-between" style="margin-bottom: 2px;">
+          <b>[REPRODUCTION cURL COMMAND]:</b>
+          <button type="button" id="copyCurlBtn">[ COPY cURL ]</button>
+        </div>
+        <pre id="curlOutput" class="curl-preview-pre">curl command will generate here...</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. TARGET CONFIG & ENGINE DATASTORES -->
+  <fieldset>
+    <legend>1. Target Resource & Auto-Fetched DataStores</legend>
+
+    <div class="grid-4" style="margin-bottom: 6px;">
+      <div>
+        <label><b>Project ID:</b></label><br>
+        <input type="text" id="cfgProjectId" value="agentspace-test-469511" style="width: 100%;">
+      </div>
+      <div>
+        <label><b>API Version (Dropdown):</b></label><br>
+        <select id="cfgApiVersion" style="width: 100%; font-weight: bold;">
+          <option value="v1alpha" selected>v1alpha (Full Preview & LLM Features)</option>
+          <option value="v1beta">v1beta</option>
+          <option value="v1">v1 (GA)</option>
+        </select>
+      </div>
+      <div>
+        <label><b>Location (Dropdown):</b></label><br>
+        <select id="cfgLocation" style="width: 100%;">
+          <option value="global" selected>global (Default Multi-region)</option>
+          <option value="us">us (United States)</option>
+          <option value="eu">eu (Europe)</option>
+          <option value="asia-northeast3">asia-northeast3 (Seoul)</option>
+        </select>
+      </div>
+      <div>
+        <label><b>Serving Config ID:</b></label><br>
+        <input type="text" id="cfgServingConfigId" value="default_search" style="width: 100%;">
+      </div>
+    </div>
+
+    <div class="row" style="margin-bottom: 6px;">
+      <span><b>Target Resource Mode:</b></span>
+      <label><input type="radio" name="targetTypeRadio" value="engines" checked> <b>Search Engine</b> (engines/{id}/servingConfigs/{cfg}:search)</label>
+      <label><input type="radio" name="targetTypeRadio" value="dataStores"> <b>Direct DataStore</b> (dataStores/{id}/servingConfigs/{cfg}:search)</label>
+    </div>
+
+    <div class="grid-2" style="margin-bottom: 6px;">
+      <div>
+        <label><b>Engine ID (Input / Change triggers auto-fetch):</b></label><br>
+        <input type="text" id="cfgEngineId" value="gemini-enhanced-parser-tes_1775720801989" style="width: 100%; font-weight: bold;">
+      </div>
+      <div>
+        <label><b>Or Select from Project Engines:</b></label><br>
+        <div class="row">
+          <select id="engineDropdown" style="flex: 1;">
+            <option value="">-- Click [Fetch Engines List] --</option>
+          </select>
+          <button type="button" id="fetchEnginesBtn">[ Fetch Engines ]</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUTO-FETCHED DATASTORES BOX -->
+    <div id="engineDataStoresBox" style="border: 1px solid #000; padding: 6px 8px; background: #fcfcfc; margin-bottom: 6px;">
+      <div class="flex-between" style="margin-bottom: 4px; border-bottom: 1px dotted #999; padding-bottom: 4px;">
+        <div>
+          <b>[Attached DataStores for this Engine]</b>
+          <span id="dataStoreLoadingStatus" style="margin-left: 8px; font-size: 11px; font-weight: normal;">(Initializing...)</span>
+        </div>
+        <div class="row" style="margin-bottom: 0;">
+          <button type="button" id="selectAllDsBtn">[ Select All ]</button>
+          <button type="button" id="deselectAllDsBtn">[ Deselect All ]</button>
+          <button type="button" id="refetchDataStoresBtn">[ Refetch DataStores ]</button>
+        </div>
+      </div>
+      <div id="dataStoreCheckboxes" style="display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto; padding: 2px;">
+        <span style="color: #666;">DataStores will be listed here after Engine ID is resolved.</span>
+      </div>
+      <div style="font-size: 10.5px; color: #555; margin-top: 4px;">
+        * Checked dataStores are serialized into <code>dataStoreSpecs</code> in the search request. If none are selected, Discovery Engine automatically searches across all attached dataStores.
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>Custom Bearer Token (Overrides local ADC):</label><br>
+        <input type="password" id="cfgCustomToken" placeholder="Optional: ya29.a0..." style="width: 100%;">
+      </div>
+      <div>
+        <label>Quota Project (X-Goog-User-Project):</label><br>
+        <input type="text" id="cfgQuotaProject" placeholder="Default: same as Project ID" style="width: 100%;">
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- 3. QUERY & PRESETS -->
+  <fieldset>
+    <legend>2. Query & Presets</legend>
+    <div class="row" style="margin-bottom: 6px;">
+      <input type="text" id="queryInput" value="Gemini Enterprise 아키텍처 및 보안 정책" placeholder="Enter search query..." style="flex: 1; padding: 6px; font-weight: bold; font-size: 13px;">
+      <button id="searchBtn" class="btn-black" style="padding: 6px 14px;">[ SEND REQUEST ]</button>
+      <button id="burstBtn" title="Run 5 sequential requests to measure latency & verify 300 QPM limit">[ 5-REQ BURST TEST ]</button>
+      <button id="clearQueryBtn">[ CLEAR ]</button>
+    </div>
+
+    <!-- POSCO / Enterprise Presets -->
+    <div class="row" style="font-size: 11px; flex-wrap: wrap;">
+      <b>Test Presets:</b>
+      <button type="button" class="preset-btn" data-preset="posco_internal">[ POSCO: Internal Only (No Web Grounding, High Relevance) ]</button>
+      <button type="button" class="preset-btn" data-preset="posco_digital">[ POSCO: Digital Parser (Excel/CSV) ]</button>
+      <button type="button" class="preset-btn" data-preset="summary">[ Gemini Grounded Summary ]</button>
+      <button type="button" class="preset-btn" data-preset="extractive">[ Extractive QA ]</button>
+      <button type="button" class="preset-btn" data-preset="chunks">[ Chunks Mode ]</button>
+      <button type="button" class="preset-btn" data-preset="minimal">[ Minimal Raw ]</button>
+    </div>
+  </fieldset>
+
+  <!-- 4. ALL SEARCH PROPERTIES TO TOGGLE (HIGH-DENSITY MONOCHROME 2-COL) -->
+  <div class="grid-2">
+
+    <!-- Column 1: Core Search & contentSearchSpec -->
+    <div>
+      <fieldset>
+        <legend>3A. Core Search & Filtering Properties</legend>
+        <div class="grid-3" style="margin-bottom: 6px;">
+          <div>
+            <label><input type="checkbox" id="propPageSizeEnabled" checked> pageSize:</label><br>
+            <input type="number" id="propPageSize" min="1" max="100" value="10" style="width: 100%;">
+          </div>
+          <div>
+            <label><input type="checkbox" id="propOffsetEnabled"> offset:</label><br>
+            <input type="number" id="propOffset" min="0" value="0" style="width: 100%;">
+          </div>
+          <div>
+            <label><input type="checkbox" id="propPageTokenEnabled"> pageToken:</label><br>
+            <input type="text" id="propPageToken" placeholder="page token" style="width: 100%;">
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom: 6px;">
+          <div>
+            <label><input type="checkbox" id="propFilterEnabled"> filter:</label><br>
+            <input type="text" id="propFilter" placeholder='category: ANY("Security")' style="width: 100%;">
+          </div>
+          <div>
+            <label><input type="checkbox" id="propCanonicalFilterEnabled"> canonicalFilter:</label><br>
+            <input type="text" id="propCanonicalFilter" placeholder='canonical filter' style="width: 100%;">
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom: 6px;">
+          <div>
+            <label><input type="checkbox" id="propOrderByEnabled"> orderBy:</label><br>
+            <input type="text" id="propOrderBy" placeholder='update_time desc' style="width: 100%;">
+          </div>
+          <div>
+            <label><input type="checkbox" id="propRelevanceThresholdEnabled"> relevanceThreshold:</label><br>
+            <select id="propRelevanceThreshold" style="width: 100%;">
+              <option value="NONE">NONE</option>
+              <option value="LOW">LOW</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="HIGH">HIGH (권장: 엄격한 관련성 필터링)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label><input type="checkbox" id="propRankingExprEnabled"> rankingExpression:</label><br>
+            <input type="text" id="propRankingExpr" placeholder='ranking expression' style="width: 100%;">
+          </div>
+          <div>
+            <label><input type="checkbox" id="propUserPseudoIdEnabled"> userPseudoId:</label><br>
+            <input type="text" id="propUserPseudoId" placeholder='test-user-uuid' style="width: 100%;">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- contentSearchSpec -->
+      <fieldset>
+        <legend>3B. contentSearchSpec (Summary, QA, Snippets, Chunks)</legend>
+
+        <!-- summarySpec -->
+        <div style="border-bottom: 1px solid #000; padding-bottom: 6px; margin-bottom: 6px;">
+          <div class="row">
+            <label><b><input type="checkbox" id="summaryEnabled" checked> summarySpec.enabled</b> (Gemini Grounded Summarization)</label>
+          </div>
+          <div class="grid-3" style="margin-bottom: 4px;">
+            <div>resultCount: <input type="number" id="summaryCount" min="1" max="10" value="3" style="width: 45px;"></div>
+            <div>languageCode: <input type="text" id="summaryLang" value="ko" style="width: 50px;"></div>
+            <div><label><input type="checkbox" id="summaryCitations" checked> includeCitations</label></div>
+          </div>
+          <div class="row" style="flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
+            <label><input type="checkbox" id="summaryAdversarial" checked> ignoreAdversarialQuery</label>
+            <label><input type="checkbox" id="summaryNonSeeking" checked> ignoreNonSummarySeeking</label>
+            <label><input type="checkbox" id="summaryLowRelevant" checked> ignoreLowRelevantContent</label>
+            <label><input type="checkbox" id="summarySemanticChunks"> useSemanticChunks</label>
+          </div>
+          <div style="margin-bottom: 4px;">
+            Model Version:
+            <select id="summaryModel">
+              <option value="gemini-1.5-flash-002/default" selected>gemini-1.5-flash-002/default</option>
+              <option value="gemini-1.5-pro-002/default">gemini-1.5-pro-002/default</option>
+              <option value="preview">preview</option>
+              <option value="default">default</option>
+            </select>
+          </div>
+          <div>
+            Preamble (System Instruction):<br>
+            <input type="text" id="summaryPreamble" value="답변은 신뢰할 수 있는 사내 문서를 바탕으로 한국어로 공손하고 명확하게 요약해 주세요." style="width: 100%;">
+          </div>
+        </div>
+
+        <!-- extractiveContentSpec -->
+        <div style="border-bottom: 1px solid #000; padding-bottom: 6px; margin-bottom: 6px;">
+          <div class="row">
+            <label><b><input type="checkbox" id="extractiveEnabled" checked> extractiveContentSpec.enabled</b> (Direct Answers & Segments)</label>
+          </div>
+          <div class="grid-3" style="margin-bottom: 4px;">
+            <div>maxAnswers: <input type="number" id="extractiveAnswers" min="0" max="5" value="1" style="width: 40px;"></div>
+            <div>maxSegments: <input type="number" id="extractiveSegments" min="0" max="5" value="1" style="width: 40px;"></div>
+            <div><label><input type="checkbox" id="extractiveReturnScore" checked> returnScore</label></div>
+          </div>
+          <div class="row">
+            <span>prevSegments: <input type="number" id="extractivePrev" min="0" max="3" value="0" style="width: 40px;"></span>
+            <span>nextSegments: <input type="number" id="extractiveNext" min="0" max="3" value="0" style="width: 40px;"></span>
+          </div>
+        </div>
+
+        <!-- snippetSpec & searchResultMode -->
+        <div>
+          <div class="row" style="margin-bottom: 4px;">
+            <label><input type="checkbox" id="snippetReturn" checked> snippetSpec.returnSnippet</label>
+            <span>maxSnippets: <input type="number" id="snippetMax" min="1" max="5" value="2" style="width: 40px;"></span>
+          </div>
+          <div class="row">
+            <span>searchResultMode:</span>
+            <label><input type="radio" name="resMode" value="DOCUMENTS" checked> DOCUMENTS</label>
+            <label><input type="radio" name="resMode" value="CHUNKS"> CHUNKS</label>
+            <span>(prevChunk: <input type="number" id="chunkPrev" min="0" max="3" value="1" style="width: 35px;"> nextChunk: <input type="number" id="chunkNext" min="0" max="3" value="1" style="width: 35px;">)</span>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+
+    <!-- Column 2: Query Understanding, Boost, Facets & Raw Params -->
+    <div>
+      <fieldset>
+        <legend>3C. Query Understanding & Corrections</legend>
+        <div class="grid-2" style="margin-bottom: 6px;">
+          <div>
+            <label><input type="checkbox" id="qeEnabled" checked> queryExpansionSpec:</label><br>
+            <select id="qeCondition" style="width: 100%;">
+              <option value="AUTO" selected>AUTO</option>
+              <option value="DISABLED">DISABLED</option>
+            </select>
+          </div>
+          <div>
+            <label><input type="checkbox" id="spellEnabled" checked> spellCorrectionSpec:</label><br>
+            <select id="spellMode" style="width: 100%;">
+              <option value="AUTO" selected>AUTO</option>
+              <option value="SUGGESTION_ONLY">SUGGESTION_ONLY</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="qePin"> pinUnexpandedResults</label>
+          <span style="margin-left: 12px;">NL Filter Extraction:</span>
+          <select id="nlFilterCondition">
+            <option value="DISABLED" selected>DISABLED</option>
+            <option value="ENABLED">ENABLED</option>
+          </select>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>3D. boostSpec & facetSpecs</legend>
+        <div style="margin-bottom: 6px;">
+          <div class="flex-between">
+            <label><b>boostSpec (Condition Boosts):</b></label>
+            <button type="button" id="addBoostBtn">[ + Add Boost Rule ]</button>
+          </div>
+          <div id="boostList" style="margin-top: 4px;"></div>
+        </div>
+        <div>
+          <label><b>facetSpecs (Comma-separated keys):</b></label><br>
+          <input type="text" id="propFacets" value="category, author" style="width: 100%;">
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>3E. Custom Raw JSON Parameters (Arbitrary Injection)</legend>
+        <div style="font-size: 10.5px; color: #444; margin-bottom: 2px;">Merged directly into root request payload for experimental/preview GCP flags:</div>
+        <textarea id="customJsonParams" style="width: 100%; height: 50px; font-family: inherit; font-size: 11px;" placeholder='{ "userInfo": { "userId": "test-user" } }'></textarea>
+      </fieldset>
+    </div>
+
+  </div>
+
+  <!-- 5. RAW DATA RESPONSE (JSON ONLY) - NO FRONTEND FLUFF -->
+  <fieldset style="margin-top: 10px;">
+    <legend>4. RAW DATA RESPONSE (JSON ONLY)</legend>
+    <div class="flex-between" style="margin-bottom: 6px;">
+      <div class="row">
+        <button id="copyRawJsonBtn" class="btn-black">[ COPY RAW JSON ]</button>
+        <button id="downloadRawJsonBtn">[ DOWNLOAD .JSON FILE ]</button>
+        <span id="rawStatusBadge" class="badge">HTTP 200</span>
+        <span id="rawLatencyBadge" class="badge">0 ms</span>
+        <span id="rawSizeLabel" class="badge">0 KB</span>
+      </div>
+      <div>
+        <b>Filter grep:</b> <input type="text" id="rawFilterInput" placeholder="filter lines..." style="width: 140px;">
+      </div>
+    </div>
+    <textarea id="rawJsonOutput" class="raw-textarea" readonly spellcheck="false">{ "status": "Ready. Execute search to inspect raw response." }</textarea>
+  </fieldset>
+
+  <script type="module" src="/static/app.js"></script>
 </body>
 </html>
